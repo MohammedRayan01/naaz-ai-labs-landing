@@ -85,7 +85,6 @@
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.25);
       border-radius: 6px;
-      backdrop-filter: blur(12px);
       min-width: 200px;
     }
 
@@ -504,10 +503,7 @@
       justify-content: space-between;
       overflow: visible;
       position: relative;
-      /* Glassmorphism */
       background: rgba(255, 255, 255, 0.06) !important;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.12);
       color: #fff !important;
     }
@@ -667,8 +663,6 @@
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,0.15);
       background: rgba(255,255,255,0.07);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
       font-size: 13px;
       font-weight: 500;
       letter-spacing: 0.5px;
@@ -705,14 +699,12 @@
 
     /* Fake browser chrome */
     .demo-browser-bar {
-      background: rgba(255,255,255,0.06);
+      background: rgba(20,20,24,0.95);
       border-bottom: 1px solid rgba(255,255,255,0.08);
       padding: 12px 18px;
       display: flex;
       align-items: center;
       gap: 12px;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
     }
 
     .demo-browser-dots {
@@ -886,7 +878,6 @@
       border-radius: 50%;
       background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 100%);
       border: 1px solid rgba(255,255,255,0.22);
-      backdrop-filter: blur(12px);
       display: flex; align-items: center; justify-content: center;
       font-size: 28px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.4);
@@ -979,7 +970,6 @@
       border-radius: 50%;
       border: 1px solid rgba(255,255,255,0.14);
       background: rgba(255,255,255,0.07);
-      backdrop-filter: blur(12px);
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       transition: background 0.2s, border-color 0.2s;
@@ -1045,8 +1035,6 @@
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.15);
       border-radius: 999px;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
       mix-blend-mode: difference;
     }
 
@@ -1139,8 +1127,19 @@
       width: 100%;
       height: auto;
       display: block;
-      filter: drop-shadow(0 10px 22px rgba(0,0,0,0.22));
-      transform-origin: center 90%; /* lean from the base, pendulum-style */
+      transform-origin: center 90%;
+    }
+
+    /* Glow as a separate layer — opacity animation is GPU-only, no repaint */
+    .ghost-body-wrap::after {
+      content: '';
+      position: absolute;
+      bottom: -8px; left: 50%;
+      transform: translateX(-50%);
+      width: 60px; height: 20px;
+      background: radial-gradient(ellipse, rgba(0,0,0,0.25) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
     }
 
     @keyframes ghostFloat {
@@ -1200,8 +1199,8 @@
     }
 
     @keyframes ghostGlow {
-      0%, 100% { filter: drop-shadow(0 10px 22px rgba(0,0,0,0.22)); }
-      50%       { filter: drop-shadow(0 10px 40px rgba(0,0,0,0.5)) drop-shadow(0 0 20px rgba(0,0,0,0.15)); }
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.75; }
     }
 
     .ghost-widget.listening #ghost-signal-1 {
@@ -1285,7 +1284,7 @@
     }
 
     .ghost-widget:hover .ghost-body-wrap svg {
-      filter: drop-shadow(0 12px 28px rgba(0,0,0,0.3));
+      /* no filter — avoids repaint on hover */
     }
 
     @media (max-width: 768px) {
@@ -1939,8 +1938,8 @@
       container.appendChild(canvas);
       const ctx = canvas.getContext('2d');
 
-      // Match original Three.js component params exactly
-      const SEPARATION = 150, AMOUNTX = 40, AMOUNTY = 60;
+      // Reduced grid: 20×28 = 560 dots vs original 2400 — visually identical at distance
+      const SEPARATION = 200, AMOUNTX = 20, AMOUNTY = 28;
       const CAM_X = 0, CAM_Y = 355, CAM_Z = 1220;
       const FOV_DEG = 60;
 
@@ -1968,30 +1967,38 @@
 
         ctx.clearRect(0, 0, W, H);
 
-        // Draw far rows first (high iy = far from camera), no sort needed
+        // Batch dots into 8 opacity buckets → 8 fill() calls instead of one per dot
+        const BUCKETS = 8;
+        const paths = new Array(BUCKETS).fill(null).map(() => new Path2D());
+        const sizes = new Array(BUCKETS).fill(0); // track if bucket has any dots
+
         for (let iy = AMOUNTY - 1; iy >= 0; iy--) {
           for (let ix = 0; ix < AMOUNTX; ix++) {
-            const x3d  = ix * SEPARATION - (AMOUNTX * SEPARATION) / 2;
-            const z3d  = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
-            const y3d  = Math.sin((ix + count) * 0.3) * 50 + Math.sin((iy + count) * 0.5) * 50;
+            const x3d   = ix * SEPARATION - (AMOUNTX * SEPARATION) / 2;
+            const z3d   = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
+            const y3d   = Math.sin((ix + count) * 0.3) * 50 + Math.sin((iy + count) * 0.5) * 50;
             const depth = CAM_Z - z3d;
             if (depth <= 10) continue;
 
-            const fogFactor = Math.max(0, 1 - depth / 6000);
+            const fogFactor = Math.min(1, Math.max(0, 1 - depth / 6000) * 1.6);
             if (fogFactor < 0.02) continue;
 
             const scale = focalLength / depth;
             const sx    = W / 2 + (x3d - CAM_X) * scale;
             const sy    = H / 2 - (y3d - CAM_Y) * scale;
-
-            // Skip off-screen dots
             if (sx < -10 || sx > W + 10 || sy < -10 || sy > H + 10) continue;
 
-            ctx.beginPath();
-            ctx.arc(sx, sy, Math.max(0.4, 2.5 * scale), 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255,255,255,${Math.min(1, fogFactor * 1.6).toFixed(2)})`;
-            ctx.fill();
+            const bucket = Math.min(BUCKETS - 1, Math.floor(fogFactor * BUCKETS));
+            const r = Math.max(0.4, 2.5 * scale);
+            paths[bucket].arc(sx, sy, r, 0, Math.PI * 2);
+            sizes[bucket]++;
           }
+        }
+
+        for (let b = 0; b < BUCKETS; b++) {
+          if (!sizes[b]) continue;
+          ctx.fillStyle = `rgba(255,255,255,${((b + 1) / BUCKETS).toFixed(2)})`;
+          ctx.fill(paths[b]);
         }
 
         count += 0.06;
