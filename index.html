@@ -1938,8 +1938,7 @@
       container.appendChild(canvas);
       const ctx = canvas.getContext('2d');
 
-      // Reduced grid: 20×28 = 560 dots vs original 2400 — visually identical at distance
-      const SEPARATION = 200, AMOUNTX = 20, AMOUNTY = 28;
+      const SEPARATION = 150, AMOUNTX = 40, AMOUNTY = 60;
       const CAM_X = 0, CAM_Y = 355, CAM_Z = 1220;
       const FOV_DEG = 60;
 
@@ -1990,6 +1989,7 @@
 
             const bucket = Math.min(BUCKETS - 1, Math.floor(fogFactor * BUCKETS));
             const r = Math.max(0.4, 2.5 * scale);
+            paths[bucket].moveTo(sx + r, sy); // start new subpath so arcs don't connect
             paths[bucket].arc(sx, sy, r, 0, Math.PI * 2);
             sizes[bucket]++;
           }
