@@ -1,0 +1,2567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Naaz AI Labs</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: #fff;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    /* Tall scroll container */
+    .scroll-section {
+      position: relative;
+      height: 350vh;
+    }
+
+    /* Sticky wrapper — video + all overlays live here */
+    .sticky-video-wrapper {
+      position: sticky;
+      top: 0;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Dark gradient to make text readable */
+    .video-overlay {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to right, rgba(0,0,0,0.55) 0%, transparent 60%),
+        linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 40%),
+        linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 40%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ── BOTTOM-RIGHT: Stats / Branding ── */
+    .hero-top-right {
+      position: absolute;
+      bottom: 64px;
+      right: 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 14px;
+      z-index: 3;
+      mix-blend-mode: difference;
+    }
+
+    .brand-label {
+      font-size: 11px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 6px;
+    }
+
+    .stat-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 22px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 6px;
+      backdrop-filter: blur(12px);
+      min-width: 200px;
+    }
+
+    .stat-number {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #fff;
+      min-width: 60px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    /* ── BOTTOM-LEFT: Headline + Buttons ── */
+    .hero-bottom-left {
+      position: absolute;
+      bottom: 64px;
+      left: 56px;
+      z-index: 3;
+      max-width: 520px;
+      mix-blend-mode: difference;
+    }
+
+    .hero-eyebrow {
+      font-size: 11px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 16px;
+    }
+
+    .hero-headline {
+      font-size: clamp(2.8rem, 5.5vw, 5rem);
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -1.5px;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+
+    .hero-sub {
+      font-size: 15px;
+      line-height: 1.7;
+      color: rgba(255,255,255,0.55);
+      margin-bottom: 36px;
+      max-width: 400px;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      padding: 13px 30px;
+      background: transparent;
+      color: #fff;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      border: 2px solid #fff;
+      border-radius: 3px;
+      transition: opacity 0.2s;
+    }
+
+    .btn-primary:hover { opacity: 0.7; }
+
+    .btn-ghost {
+      padding: 13px 30px;
+      background: transparent;
+      color: #fff;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 3px;
+      transition: border-color 0.2s;
+    }
+
+    .btn-ghost:hover { border-color: #fff; }
+
+    /* ── Flash Bang ── */
+    .flash-bang {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 200vmax;
+      height: 200vmax;
+      background: radial-gradient(circle, #fff 38%, rgba(255,255,255,0.92) 60%, rgba(255,255,255,0.6) 80%, transparent 100%);
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      filter: url(#smokeEdge);
+      z-index: 2;
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    /* Scroll hint — center bottom */
+    .scroll-hint {
+      position: absolute;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      opacity: 1;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .scroll-hint span {
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+    }
+
+    .scroll-hint .arrow {
+      width: 18px;
+      height: 18px;
+      border-right: 1.5px solid rgba(255,255,255,0.5);
+      border-bottom: 1.5px solid rgba(255,255,255,0.5);
+      transform: rotate(45deg);
+      animation: bounce 1.2s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: rotate(45deg) translateY(0); }
+      50% { transform: rotate(45deg) translateY(6px); }
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2px;
+      width: 0%;
+      background: rgba(255,255,255,0.6);
+      z-index: 5;
+      transition: width 0.05s linear;
+    }
+
+    .bento-section::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 120px;
+      background: linear-gradient(to bottom, transparent, #080808);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* After video content */
+    .after-content {
+      background: #fff;
+      padding: 120px 40px;
+      text-align: center;
+    }
+
+    .after-content h2 {
+      font-size: clamp(2rem, 5vw, 4rem);
+      font-weight: 300;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #000;
+    }
+
+    /* ── Scroll Stack ── */
+    .scroll-stack-wrapper {
+      width: 100%;
+      background: #fff;
+    }
+
+    .scroll-stack-inner {
+      padding: 20vh 5% 20rem;
+      min-height: 100vh;
+      width: 90%;
+      margin: 0 auto;
+    }
+
+    .scroll-stack-inner h2 {
+      font-size: clamp(1.8rem, 3.5vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -1px;
+      color: #000;
+      margin-bottom: 80px;
+    }
+
+    .scroll-stack-card {
+      transform-origin: top center;
+      will-change: transform, filter;
+      backface-visibility: hidden;
+      transform-style: preserve-3d;
+      transition: box-shadow 0.3s ease;
+      height: 24rem;
+      width: 100%;
+      padding: 3rem;
+      border-radius: 40px;
+      box-sizing: border-box;
+      position: relative;
+      box-shadow: 0 0 30px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .stack-card-tag {
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      opacity: 0.5;
+      margin-bottom: 12px;
+    }
+
+    .stack-card-title {
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
+    }
+
+    .stack-card-desc {
+      font-size: 14px;
+      line-height: 1.6;
+      opacity: 0.6;
+      max-width: 480px;
+    }
+
+    .scroll-stack-end { width: 100%; height: 1px; }
+
+    @media (max-width: 768px) {
+      .scroll-stack-inner { padding: 15vh 1.5rem 40rem; }
+      .scroll-stack-card { padding: 2rem; height: auto; min-height: 16rem; }
+    }
+
+    /* ── Bento Grid ── */
+    .bento-section {
+      background: #080808;
+      padding: 120px 5%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Dot wave canvas sits behind everything */
+    #bento-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      display: block;
+    }
+
+    #bento-canvas canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Entrance animation */
+    .bento-card {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.6s ease, transform 0.6s ease, box-shadow 0.3s ease, scale 0.3s ease;
+    }
+
+    .bento-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Stagger delays */
+    .bento-card:nth-child(1) { transition-delay: 0s; }
+    .bento-card:nth-child(2) { transition-delay: 0.1s; }
+    .bento-card:nth-child(3) { transition-delay: 0.18s; }
+    .bento-card:nth-child(4) { transition-delay: 0.26s; }
+    .bento-card:nth-child(5) { transition-delay: 0.34s; }
+    .bento-card:nth-child(6) { transition-delay: 0.42s; }
+
+    /* Hover lift */
+    .bento-card:hover {
+      scale: 1.02;
+      background: rgba(255,255,255,0.12) !important;
+      border-color: rgba(255,255,255,0.25) !important;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(255,255,255,0.04);
+    }
+
+    /* Stat numbers — continuous breathe */
+    .bento-card.visible .bento-stat-number {
+      animation: statBreathe 3s ease-in-out infinite;
+    }
+    .bento-c3.visible .bento-stat-number {
+      animation-delay: 1.5s;
+    }
+
+    @keyframes statBreathe {
+      0%, 100% { transform: scale(1);    opacity: 1; }
+      50%       { transform: scale(1.06); opacity: 0.85; }
+    }
+
+
+    /* Border shimmer — only on the 1px border, not the card fill */
+    .bento-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 28px;
+      padding: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%);
+      background-size: 200% 100%;
+      -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .bento-card.visible::after {
+      opacity: 1;
+      animation: borderShimmer 3s linear infinite;
+    }
+
+    .bento-card:nth-child(2).visible::after { animation-delay: 0.5s; }
+    .bento-card:nth-child(3).visible::after { animation-delay: 1s; }
+    .bento-card:nth-child(4).visible::after { animation-delay: 1.5s; }
+    .bento-card:nth-child(5).visible::after { animation-delay: 2s; }
+    .bento-card:nth-child(6).visible::after { animation-delay: 2.5s; }
+
+    @keyframes borderShimmer {
+      0%   { background-position: -100% 0; }
+      100% { background-position: 200%  0; }
+    }
+
+    /* Icons — continuous float */
+    .bento-card.visible .bento-card-icon {
+      animation: iconFloat 2.5s ease-in-out infinite;
+    }
+    .bento-c4.visible .bento-card-icon { animation-delay: 0.4s; }
+    .bento-c5.visible .bento-card-icon { animation-delay: 0.8s; }
+    .bento-c1.visible .bento-card-icon { animation-delay: 0.2s; }
+
+    @keyframes iconFloat {
+      0%, 100% { transform: translateY(0)    rotate(0deg); }
+      50%       { transform: translateY(-6px) rotate(-6deg); }
+    }
+
+    /* Stat cards — subtle background pulse */
+    .bento-c2.visible,
+    .bento-c3.visible {
+      animation: cardGlow 4s ease-in-out infinite;
+    }
+    .bento-c3.visible { animation-delay: 2s; }
+
+    @keyframes cardGlow {
+      0%, 100% { background: #f5f5f5; }
+      50%       { background: #ebebeb; }
+    }
+
+    .bento-header {
+      margin-bottom: 60px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .bento-header p {
+      font-size: 11px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 16px;
+    }
+
+    .bento-header h2 {
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      font-weight: 700;
+      letter-spacing: -1.5px;
+      color: #fff;
+      line-height: 1.05;
+    }
+
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: minmax(260px, auto);
+      gap: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .bento-card {
+      border-radius: 28px;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: visible;
+      position: relative;
+      /* Glassmorphism */
+      background: rgba(255, 255, 255, 0.06) !important;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #fff !important;
+    }
+
+    .bento-card-icon {
+      width: 38px;
+      height: 38px;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+
+    .bento-card-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .bento-card-label {
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 10px;
+    }
+
+    .bento-card-title {
+      font-size: clamp(1.1rem, 1.8vw, 1.6rem);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      line-height: 1.15;
+      color: #fff;
+    }
+
+    .bento-card-desc {
+      font-size: 12px;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.5);
+      margin-top: 10px;
+    }
+
+    .bento-stat-number {
+      font-size: clamp(3rem, 5vw, 5rem);
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1;
+      color: #fff;
+    }
+
+    .bento-stat-label {
+      font-size: 13px;
+      color: rgba(255,255,255,0.45);
+      margin-top: 8px;
+    }
+
+    /* Card layout positions — glassmorphism variants with subtle tint */
+    .bento-c1 { grid-column: span 2; grid-row: span 1; background: rgba(255,255,255,0.09) !important; }
+    .bento-c2 { grid-column: span 1; grid-row: span 1; background: rgba(255,255,255,0.05) !important; }
+    .bento-c3 { grid-column: span 1; grid-row: span 1; background: rgba(255,255,255,0.05) !important; }
+    .bento-c4 { grid-column: span 1; grid-row: span 1; background: rgba(120,80,255,0.12) !important; }
+    .bento-c5 { grid-column: span 1; grid-row: span 1; background: rgba(255,255,255,0.05) !important; }
+    .bento-c6 { grid-column: span 2; grid-row: span 1; background: rgba(255,255,255,0.09) !important; }
+
+    @media (max-width: 900px) {
+      .bento-grid {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: auto;
+      }
+      .bento-c1, .bento-c2, .bento-c3,
+      .bento-c4, .bento-c5, .bento-c6 {
+        grid-column: span 1;
+        grid-row: span 1;
+      }
+    }
+
+    @media (max-width: 540px) {
+      .bento-grid { grid-template-columns: 1fr; }
+      .bento-section { padding: 80px 6%; }
+    }
+
+    /* ── Demo Showcase ── */
+    .demo-section {
+      background: #050505;
+      padding: 120px 5% 160px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .demo-section::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 120px;
+      background: linear-gradient(to bottom, transparent, #000);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Canvas + rings sit at z:0; content floats above */
+    .demo-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .demo-ring {
+      position: absolute;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      pointer-events: none;
+      z-index: 0;
+      border: 1px solid rgba(255,87,34,0.5);
+    }
+    .demo-ring-1 { width: 280px;  height: 280px;  animation: dRingRotate 5s  linear infinite,         dRingPulse 2s ease-in-out infinite; }
+    .demo-ring-2 { width: 560px;  height: 560px;  animation: dRingRotate 9s  linear infinite reverse,  dRingPulse 2s ease-in-out 0.66s infinite; border-color: rgba(255,87,34,0.3); }
+    .demo-ring-3 { width: 960px;  height: 960px;  animation: dRingRotate 14s linear infinite,          dRingPulse 2s ease-in-out 1.33s infinite; border-color: rgba(255,87,34,0.15); border-width: 0.5px; }
+
+    @keyframes dRingRotate {
+      from { transform: translate(-50%, -50%) rotate(0deg);   }
+      to   { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+    @keyframes dRingPulse {
+      0%, 100% { opacity: 0.15; }
+      50%       { opacity: 0.65; }
+    }
+
+    .demo-header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+
+    .demo-header p {
+      font-size: 11px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 16px;
+    }
+
+    .demo-header h2 {
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      font-weight: 700;
+      letter-spacing: -1.5px;
+      color: #fff;
+      line-height: 1.05;
+    }
+
+    /* Tab pills */
+    .demo-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 40px;
+      flex-wrap: wrap;
+    }
+
+    .demo-tab {
+      padding: 10px 24px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.07);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .demo-tab:hover {
+      background: rgba(255,255,255,0.13);
+      border-color: rgba(255,255,255,0.35);
+      color: #fff;
+    }
+
+    .demo-tab.active {
+      background: rgba(255,255,255,0.18);
+      border-color: rgba(255,255,255,0.55);
+      color: #fff;
+      box-shadow: 0 0 20px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+
+    /* Player area */
+    .demo-player-wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      border-radius: 20px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 32px 80px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+
+    /* Fake browser chrome */
+    .demo-browser-bar {
+      background: rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .demo-browser-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .demo-browser-dots span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .demo-browser-dots span:nth-child(1) { background: #ff5f57; }
+    .demo-browser-dots span:nth-child(2) { background: #febc2e; }
+    .demo-browser-dots span:nth-child(3) { background: #28c840; }
+
+    .demo-browser-url {
+      flex: 1;
+      background: #2a2a2a;
+      border-radius: 6px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
+    }
+
+    /* Video container with aspect ratio */
+    .demo-panel {
+      display: none;
+      width: 100%;
+      aspect-ratio: 16/9;
+      position: relative;
+    }
+
+    .demo-panel.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .demo-panel video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Placeholder shown when no video is loaded */
+    .demo-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: #0d0d0d;
+    }
+
+    .demo-placeholder-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .demo-placeholder-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: rgba(255,255,255,0.6);
+      margin-left: 3px;
+    }
+
+    .demo-placeholder p {
+      font-size: 13px;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 1px;
+    }
+
+    /* ── AI Voice Call UI ── */
+    .voice-ui {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 24px 20px;
+      background: rgba(8,8,12,0.72);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+    }
+
+    /* top row */
+    .voice-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .voice-live-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      font-size: 11px;
+      color: rgba(255,255,255,0.7);
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+    .voice-live-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #4ade80;
+      animation: voiceDotPulse 1.4s ease-in-out infinite;
+    }
+    @keyframes voiceDotPulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.4; transform: scale(0.75); }
+    }
+    .voice-timer {
+      font-size: 12px;
+      color: rgba(255,255,255,0.35);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 1.5px;
+    }
+
+    /* center: avatar + waveform */
+    .voice-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      flex: 1;
+      justify-content: center;
+    }
+    .voice-avatar-wrap {
+      position: relative;
+      width: 80px; height: 80px;
+    }
+    .voice-avatar-ring {
+      position: absolute;
+      inset: -10px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.15);
+      animation: voiceRingPulse 2s ease-in-out infinite;
+    }
+    .voice-avatar-ring:nth-child(2) {
+      inset: -20px;
+      border-color: rgba(255,255,255,0.07);
+      animation-delay: 0.5s;
+    }
+    @keyframes voiceRingPulse {
+      0%,100% { transform: scale(1);   opacity: 1; }
+      50%      { transform: scale(1.06); opacity: 0.5; }
+    }
+    .voice-avatar {
+      position: relative;
+      z-index: 1;
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 100%);
+      border: 1px solid rgba(255,255,255,0.22);
+      backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .voice-agent-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+    .voice-agent-role {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    /* waveform bars */
+    .voice-waveform {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 36px;
+    }
+    .voice-bar {
+      width: 3px;
+      border-radius: 99px;
+      background: rgba(255,255,255,0.7);
+      animation: voiceBarBounce 1.1s ease-in-out infinite;
+    }
+    .voice-bar:nth-child(odd)  { background: rgba(255,255,255,0.45); }
+    .voice-bar:nth-child(1)  { animation-delay: 0s;    height: 14px; }
+    .voice-bar:nth-child(2)  { animation-delay: 0.09s; height: 22px; }
+    .voice-bar:nth-child(3)  { animation-delay: 0.18s; height: 30px; }
+    .voice-bar:nth-child(4)  { animation-delay: 0.27s; height: 36px; }
+    .voice-bar:nth-child(5)  { animation-delay: 0.36s; height: 26px; }
+    .voice-bar:nth-child(6)  { animation-delay: 0.45s; height: 18px; }
+    .voice-bar:nth-child(7)  { animation-delay: 0.54s; height: 28px; }
+    .voice-bar:nth-child(8)  { animation-delay: 0.63s; height: 20px; }
+    .voice-bar:nth-child(9)  { animation-delay: 0.72s; height: 32px; }
+    .voice-bar:nth-child(10) { animation-delay: 0.81s; height: 22px; }
+    .voice-bar:nth-child(11) { animation-delay: 0.90s; height: 14px; }
+    @keyframes voiceBarBounce {
+      0%,100% { transform: scaleY(0.35); opacity: 0.5; }
+      50%      { transform: scaleY(1);    opacity: 1; }
+    }
+
+    /* transcript */
+    .voice-transcript {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 90px;
+      overflow: hidden;
+    }
+    .voice-line {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .voice-line-speaker {
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      min-width: 32px;
+      padding-top: 2px;
+    }
+    .voice-line-speaker.ai  { color: #a78bfa; }
+    .voice-line-speaker.usr { color: rgba(255,255,255,0.4); }
+    .voice-line-text {
+      color: rgba(255,255,255,0.65);
+    }
+    .voice-line-text.ai { color: rgba(255,255,255,0.9); }
+
+    /* bottom controls */
+    .voice-controls {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+    .voice-btn {
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.07);
+      backdrop-filter: blur(12px);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .voice-btn:hover {
+      background: rgba(255,255,255,0.14);
+      border-color: rgba(255,255,255,0.28);
+    }
+    .voice-btn svg { width: 18px; height: 18px; fill: rgba(255,255,255,0.7); }
+    .voice-btn-end {
+      width: 56px; height: 56px;
+      background: rgba(239,68,68,0.25);
+      border: 1px solid rgba(239,68,68,0.45);
+    }
+    .voice-btn-end:hover { background: rgba(239,68,68,0.4); border-color: rgba(239,68,68,0.7); }
+    .voice-btn-end svg { fill: #ef4444; width: 22px; height: 22px; }
+
+    /* Description below player */
+    .demo-desc-wrap {
+      max-width: 900px;
+      margin: 28px auto 0;
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+    }
+
+    .demo-desc-tag {
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      white-space: nowrap;
+      padding-top: 3px;
+    }
+
+    .demo-desc-text h3 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+
+    .demo-desc-text p {
+      font-size: 14px;
+      line-height: 1.7;
+      color: rgba(255,255,255,0.45);
+    }
+
+    /* ── Header ── */
+    .site-header {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      width: calc(100% - 48px);
+      max-width: 1100px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 999px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      mix-blend-mode: difference;
+    }
+
+    .header-logo {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .header-nav a {
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.65);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .header-nav a:hover { color: #fff; }
+
+    .header-cta {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #fff;
+      text-decoration: none;
+      padding: 9px 22px;
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 999px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .header-cta:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: #fff;
+    }
+
+    @media (max-width: 768px) {
+      .header-nav { display: none; }
+      .site-header { padding: 12px 20px; }
+      .hero-top-right {
+        bottom: 100px;
+        right: 20px;
+      }
+      .stat-card { min-width: 160px; padding: 12px 16px; }
+      .hero-bottom-left {
+        bottom: 80px;
+        left: 24px;
+        right: 24px;
+        max-width: 100%;
+      }
+    }
+    /* ── Ghost Mascot ── */
+    .ghost-widget {
+      position: fixed;
+      bottom: 36px;
+      left: calc(100vw - 156px); /* default: right side (100vw - 120px widget - 36px margin) */
+      width: 120px;
+      height: 160px;
+      z-index: 300;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      overflow: visible;
+      /* left driven by JS lerp loop — no CSS transition needed */
+    }
+
+    .ghost-body-wrap {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      width: 90px;
+      transform: translateX(-50%);
+      animation: ghostFloat 3.2s ease-in-out infinite;
+      will-change: transform;
+      transition: filter 0.3s ease;
+    }
+
+    .ghost-body-wrap svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 10px 22px rgba(0,0,0,0.22));
+      transform-origin: center 90%; /* lean from the base, pendulum-style */
+    }
+
+    @keyframes ghostFloat {
+      0%, 100% { transform: translateX(-50%) translateY(0px);   }
+      50%       { transform: translateX(-50%) translateY(-14px); }
+    }
+
+    .ghost-particles {
+      position: absolute;
+      inset: -20px;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .ghost-bit {
+      position: absolute;
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      font-weight: 900;
+      color: #fff;
+      mix-blend-mode: difference;
+      pointer-events: none;
+      animation: ghostBitDrift var(--d, 2s) ease-out forwards;
+    }
+
+    @keyframes ghostBitDrift {
+      0%   { transform: translate(0, 0) scale(1);   opacity: 0.75; }
+      100% { transform: translate(var(--dx, 0px), var(--dy, -40px)) scale(0.5); opacity: 0; }
+    }
+
+    .ghost-speech-bubble {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 0;
+      background: #111;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+      padding: 8px 13px;
+      border-radius: 14px 14px 4px 14px;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateY(10px) scale(0.9);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      pointer-events: none;
+    }
+
+    .ghost-speech-bubble.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    /* Listening */
+    .ghost-widget.listening .ghost-body-wrap svg {
+      animation: ghostGlow 1.3s ease-in-out infinite;
+    }
+
+    @keyframes ghostGlow {
+      0%, 100% { filter: drop-shadow(0 10px 22px rgba(0,0,0,0.22)); }
+      50%       { filter: drop-shadow(0 10px 40px rgba(0,0,0,0.5)) drop-shadow(0 0 20px rgba(0,0,0,0.15)); }
+    }
+
+    .ghost-widget.listening #ghost-signal-1 {
+      animation: signalFlash 1s ease-in-out infinite;
+    }
+
+    .ghost-widget.listening #ghost-signal-2 {
+      animation: signalFlash 1s ease-in-out 0.35s infinite;
+    }
+
+    @keyframes signalFlash {
+      0%, 100% { opacity: 0.2; }
+      50%       { opacity: 1;   }
+    }
+
+    /* Thinking */
+    .ghost-widget.thinking .ghost-body-wrap {
+      animation: ghostRock 1.8s ease-in-out infinite;
+    }
+
+    @keyframes ghostRock {
+      0%, 100% { transform: translateX(-50%) rotate(-5deg) translateY(0px);  }
+      50%       { transform: translateX(-50%) rotate(5deg)  translateY(-5px); }
+    }
+
+    .ghost-widget.thinking #ghost-eye-l,
+    .ghost-widget.thinking #ghost-eye-r {
+      transform-box: fill-box;
+      transform-origin: center center;
+      animation: eyeThinkSquint 0.9s ease-in-out infinite alternate;
+    }
+
+    @keyframes eyeThinkSquint {
+      0%   { transform: scaleY(1);    }
+      100% { transform: scaleY(0.18); }
+    }
+
+    /* Sleep */
+    .ghost-widget.sleep .ghost-body-wrap {
+      animation: ghostFloat 5.5s ease-in-out infinite;
+    }
+
+    .ghost-widget.sleep #ghost-eye-l,
+    .ghost-widget.sleep #ghost-eye-r {
+      transform-box: fill-box;
+      transform-origin: center center;
+      transform: scaleY(0.12);
+      transition: transform 0.4s ease;
+    }
+
+    /* Trail bits left behind as ghost moves */
+    .ghost-trail-bit {
+      position: absolute;
+      font-family: 'Courier New', monospace;
+      font-weight: 900;
+      color: #fff;
+      mix-blend-mode: difference;
+      pointer-events: none;
+      animation: trailFade var(--dur, 1s) ease-out forwards;
+    }
+
+    @keyframes trailFade {
+      0%   { opacity: 0.85; transform: translateY(0px)   scale(1);    }
+      40%  { opacity: 0.5;  }
+      100% { opacity: 0;    transform: translateY(-20px) scale(0.5);  }
+    }
+
+    .ghost-zzz {
+      position: absolute;
+      font-family: 'Courier New', monospace;
+      font-weight: 900;
+      color: #fff;
+      mix-blend-mode: difference;
+      pointer-events: none;
+      animation: zzzRise var(--d, 2.2s) ease-out var(--delay, 0s) infinite;
+    }
+
+    @keyframes zzzRise {
+      0%   { transform: translate(0, 0) scale(0.75); opacity: 0.8; }
+      100% { transform: translate(var(--dx, 8px), -42px) scale(1.15); opacity: 0; }
+    }
+
+    .ghost-widget:hover .ghost-body-wrap svg {
+      filter: drop-shadow(0 12px 28px rgba(0,0,0,0.3));
+    }
+
+    @media (max-width: 768px) {
+      .ghost-widget {
+        bottom: 20px;
+        left: calc(100vw - 118px) !important;
+        transform-origin: bottom right;
+        transform: scale(0.82);
+      }
+      .ghost-widget.side-left {
+        left: 20px !important;
+        transform-origin: bottom left;
+      }
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <a href="#" class="header-logo">Naaz AI Labs</a>
+    <nav>
+      <ul class="header-nav">
+        <li><a href="#">Products</a></li>
+        <li><a href="#">Solutions</a></li>
+        <li><a href="#">About</a></li>
+        <li><a href="#">Blog</a></li>
+      </ul>
+    </nav>
+    <a href="#" class="header-cta">Contact Us</a>
+  </header>
+
+  <!-- SVG filter: turbulence displacement for smoke/cloud edges -->
+  <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <defs>
+      <filter id="smokeEdge" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.013 0.009" numOctaves="5" seed="7" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="110" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
+
+  <section class="scroll-section" id="scrollSection">
+    <div class="sticky-video-wrapper">
+
+      <!-- Video -->
+      <video
+        id="scrollVideo"
+        src="output.mp4"
+        preload="auto"
+        muted
+        playsinline
+        webkit-playsinline
+      ></video>
+
+      <!-- Gradient overlay -->
+      <div class="video-overlay"></div>
+
+      <!-- TOP-RIGHT: Stats -->
+      <div class="hero-top-right">
+        <p class="brand-label">Naaz AI Labs</p>
+        <div class="stat-card">
+          <span class="stat-number">10x</span>
+          <span class="stat-label">Faster Automation</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number">99%</span>
+          <span class="stat-label">Accuracy Rate</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number">24/7</span>
+          <span class="stat-label">AI Availability</span>
+        </div>
+      </div>
+
+      <!-- BOTTOM-LEFT: Headline + CTA -->
+      <div class="hero-bottom-left">
+        <p class="hero-eyebrow">AI · Automation · Intelligence</p>
+        <h1 class="hero-headline">Intelligence<br>Built for<br>Tomorrow</h1>
+        <p class="hero-sub">We build AI-powered products that think, adapt, and deliver — so your business moves faster than the world around it.</p>
+        <div class="hero-buttons">
+          <a href="#" class="btn-primary">Get Started</a>
+          <a href="#" class="btn-ghost">Learn More</a>
+        </div>
+      </div>
+
+      <!-- Flash bang -->
+      <div class="flash-bang" id="flashBang"></div>
+
+      <!-- Scroll hint -->
+      <div class="scroll-hint" id="scrollHint">
+        <span>Scroll</span>
+        <div class="arrow"></div>
+      </div>
+
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </section>
+
+  <section class="after-content">
+    <h2>Experience begins</h2>
+  </section>
+
+  <!-- Scroll Stack Section -->
+  <div class="scroll-stack-wrapper">
+    <div class="scroll-stack-inner">
+        <h2>What we build</h2>
+
+        <div class="scroll-stack-card" style="background:#0a0a0a; color:#fff;">
+          <div>
+            <p class="stack-card-tag">Product 01</p>
+            <h3 class="stack-card-title">NaazBot</h3>
+          </div>
+          <p class="stack-card-desc">An AI-powered conversational agent that understands context, learns from interactions, and handles complex workflows — deployed in minutes.</p>
+        </div>
+
+        <div class="scroll-stack-card" style="background:#f0f0f0; color:#000;">
+          <div>
+            <p class="stack-card-tag">Product 02</p>
+            <h3 class="stack-card-title">AI Automation<br>Pipelines</h3>
+          </div>
+          <p class="stack-card-desc">Connect your tools, data sources, and teams with intelligent automation that adapts to your business logic in real time.</p>
+        </div>
+
+        <div class="scroll-stack-card" style="background:#1a1a2e; color:#fff;">
+          <div>
+            <p class="stack-card-tag">Product 03</p>
+            <h3 class="stack-card-title">Data<br>Intelligence</h3>
+          </div>
+          <p class="stack-card-desc">Turn raw data into actionable insight with AI models trained on your domain — built for accuracy, built for scale.</p>
+        </div>
+
+        <div class="scroll-stack-card" style="background:#e8f5e9; color:#000;">
+          <div>
+            <p class="stack-card-tag">Product 04</p>
+            <h3 class="stack-card-title">Enterprise AI<br>Solutions</h3>
+          </div>
+          <p class="stack-card-desc">Custom AI systems designed for enterprise workflows — secure, compliant, and integrated with your existing infrastructure.</p>
+        </div>
+
+        <div class="scroll-stack-end" id="stackEnd"></div>
+      </div>
+  </div>
+
+  <!-- Gradient bridge: white → dark (eased) -->
+  <div style="height: 260px; background: linear-gradient(to bottom, #ffffff 0%, #e8e8e8 20%, #6b6b6b 50%, #1a1a1a 75%, #080808 100%);"></div>
+
+  <!-- Bento Grid Section -->
+  <section class="bento-section" id="bentoSection">
+    <div id="bento-canvas"></div>
+    <div class="bento-header">
+      <p>What we provide</p>
+      <h2>Your AI workforce,<br>ready to deploy.</h2>
+    </div>
+
+    <div class="bento-grid">
+
+      <!-- Wide: Voice Agents -->
+      <div class="bento-card bento-c1">
+        <!-- Soundwave: client immediately thinks "voice, conversation, phone" -->
+        <div class="bento-card-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="4"  y1="24" x2="4"  y2="24"/>
+            <line x1="10" y1="18" x2="10" y2="30"/>
+            <line x1="16" y1="12" x2="16" y2="36"/>
+            <line x1="22" y1="8"  x2="22" y2="40"/>
+            <line x1="28" y1="12" x2="28" y2="36"/>
+            <line x1="34" y1="18" x2="34" y2="30"/>
+            <line x1="40" y1="22" x2="40" y2="26"/>
+            <circle cx="44" cy="24" r="3" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div>
+          <p class="bento-card-label">Voice Agents</p>
+          <h3 class="bento-card-title">AI that speaks, listens and understands</h3>
+          <p class="bento-card-desc">Deploy voice agents that handle calls, qualify leads, answer queries and escalate — naturally, 24/7, without a human on the line.</p>
+        </div>
+      </div>
+
+      <!-- Stat card -->
+      <div class="bento-card bento-c2">
+        <!-- Rocket: speed, growth, outperform -->
+        <div class="bento-card-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M24 4 C32 4 42 10 42 22 L30 34 L14 34 L2 22 C2 10 16 4 24 4Z"/>
+            <circle cx="24" cy="20" r="4"/>
+            <path d="M14 34 L10 44 L20 40"/>
+            <path d="M30 34 L34 44 L28 40"/>
+          </svg>
+        </div>
+        <p class="bento-card-label">Calls handled</p>
+        <div class="bento-stat-number">10x</div>
+        <p class="bento-stat-label">More capacity than a human team</p>
+      </div>
+
+      <!-- Stat card -->
+      <div class="bento-card bento-c3">
+        <!-- Infinity loop: never stops, always on -->
+        <div class="bento-card-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M18 24 C18 18 10 12 6 16 C2 20 2 28 6 32 C10 36 18 30 24 24 C30 18 38 12 42 16 C46 20 46 28 42 32 C38 36 30 30 30 24"/>
+          </svg>
+        </div>
+        <p class="bento-card-label">Uptime</p>
+        <div class="bento-stat-number">24/7</div>
+        <p class="bento-stat-label">Your agents never sleep, never call in sick</p>
+      </div>
+
+      <!-- Chat Agents -->
+      <div class="bento-card bento-c4">
+        <!-- Chat bubble with typing dots: client instantly feels "live chat, support, sales" -->
+        <div class="bento-card-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 6 H42 Q44 6 44 8 V30 Q44 32 42 32 H16 L6 42 V8 Q6 6 8 6Z" fill="currentColor" fill-opacity="0.1"/>
+            <circle cx="16" cy="20" r="2" fill="currentColor" stroke="none"/>
+            <circle cx="24" cy="20" r="2" fill="currentColor" stroke="none"/>
+            <circle cx="32" cy="20" r="2" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div>
+          <p class="bento-card-label">Chat Agents</p>
+          <h3 class="bento-card-title">Conversations that convert</h3>
+          <p class="bento-card-desc">Intelligent chat agents for support, sales and onboarding — trained on your brand voice.</p>
+        </div>
+      </div>
+
+      <!-- Workflows -->
+      <div class="bento-card bento-c5">
+        <!-- Connected nodes/flow: automation, linking systems together -->
+        <div class="bento-card-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8"  cy="24" r="5" fill="currentColor" fill-opacity="0.15"/>
+            <circle cx="24" cy="10" r="5" fill="currentColor" fill-opacity="0.15"/>
+            <circle cx="40" cy="24" r="5" fill="currentColor" fill-opacity="0.15"/>
+            <circle cx="24" cy="38" r="5" fill="currentColor" fill-opacity="0.15"/>
+            <line x1="13" y1="24" x2="35" y2="24"/>
+            <line x1="24" y1="15" x2="24" y2="33"/>
+            <line x1="12" y1="20" x2="20" y2="14"/>
+            <line x1="28" y1="14" x2="36" y2="20"/>
+            <line x1="36" y1="28" x2="28" y2="34"/>
+            <line x1="20" y1="34" x2="12" y2="28"/>
+          </svg>
+        </div>
+        <div>
+          <p class="bento-card-label">AI Workflows</p>
+          <h3 class="bento-card-title">Automate the work behind the work</h3>
+          <p class="bento-card-desc">Connect agents to your tools and let AI handle repetitive tasks end-to-end.</p>
+        </div>
+      </div>
+
+      <!-- Wide: AI Team -->
+      <div class="bento-card bento-c6">
+        <!-- Three people in a group: team, workforce, collaboration -->
+        <div class="bento-card-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="24" cy="12" r="6"/>
+            <path d="M10 40 C10 30 38 30 38 40"/>
+            <circle cx="10" cy="16" r="4" opacity="0.7"/>
+            <path d="M2 38 C2 30 18 30 18 38" opacity="0.7"/>
+            <circle cx="38" cy="16" r="4" opacity="0.7"/>
+            <path d="M30 38 C30 30 46 30 46 38" opacity="0.7"/>
+          </svg>
+        </div>
+        <div>
+          <p class="bento-card-label">AI Team</p>
+          <h3 class="bento-card-title">A full AI team — not just a chatbot</h3>
+          <p class="bento-card-desc">We provide a coordinated team of voice agents, chat agents and automated workflows that work together like a real department — at a fraction of the cost.</p>
+        </div>
+        <div style="margin-top:28px;">
+          <a href="#" style="display:inline-block;padding:13px 28px;background:rgba(255,255,255,0.95);color:#000;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:1px;border-radius:999px;">Build your AI team →</a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Dark → dark bridge (bento → demo) -->
+  <div style="height:120px;background:linear-gradient(to bottom,#080808,#050505);"></div>
+
+  <!-- Demo Showcase Section -->
+  <section class="demo-section">
+    <div class="demo-header">
+      <p>See it in action</p>
+      <h2>Watch your AI team<br>handle real conversations</h2>
+    </div>
+
+    <!-- Tabs -->
+    <div class="demo-tabs">
+      <button class="demo-tab active" data-tab="sales">AI Sales Call</button>
+      <button class="demo-tab" data-tab="leadqual">Lead Qualification</button>
+      <button class="demo-tab" data-tab="appointment">Appointment Booking</button>
+    </div>
+
+    <!-- Player -->
+    <div class="demo-player-wrap">
+      <div class="demo-browser-bar">
+        <div class="demo-browser-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="demo-browser-url" id="demoBrowserUrl">naazailabs.com · AI Sales Call</div>
+      </div>
+
+      <!-- Sales Call panel -->
+      <div class="demo-panel active" id="panel-sales">
+        <div class="voice-ui">
+          <!-- header -->
+          <div class="voice-header">
+            <div class="voice-live-badge">
+              <span class="voice-live-dot"></span>LIVE CALL
+            </div>
+            <span class="voice-timer" id="voiceTimer-sales">00:42</span>
+          </div>
+          <!-- center -->
+          <div class="voice-center">
+            <div class="voice-avatar-wrap">
+              <div class="voice-avatar-ring"></div>
+              <div class="voice-avatar-ring"></div>
+              <div class="voice-avatar">🤖</div>
+            </div>
+            <div style="text-align:center">
+              <div class="voice-agent-name">Alex · AI Sales Agent</div>
+              <div class="voice-agent-role">NAAZ AI LABS</div>
+            </div>
+            <div class="voice-waveform">
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div>
+            </div>
+          </div>
+          <!-- transcript -->
+          <div class="voice-transcript">
+            <div class="voice-line">
+              <span class="voice-line-speaker ai">AI</span>
+              <span class="voice-line-text ai">Hi Marcus, this is Alex from Naaz AI Labs — do you have two minutes to hear how we cut SDR costs by 60%?</span>
+            </div>
+            <div class="voice-line">
+              <span class="voice-line-speaker usr">You</span>
+              <span class="voice-line-text">Sure, I'm listening.</span>
+            </div>
+          </div>
+          <!-- controls -->
+          <div class="voice-controls">
+            <button class="voice-btn" title="Mute">
+              <svg viewBox="0 0 24 24"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm6.5 9a.75.75 0 0 1 .75.75 7.25 7.25 0 0 1-6.5 7.21V20h2.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5h2.5v-2.04a7.25 7.25 0 0 1-6.5-7.21.75.75 0 0 1 1.5 0 5.75 5.75 0 0 0 11.5 0 .75.75 0 0 1 .75-.75z"/></svg>
+            </button>
+            <button class="voice-btn voice-btn-end" title="End call">
+              <svg viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+            </button>
+            <button class="voice-btn" title="Volume">
+              <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.8-1-3.3-2.5-4.1v8.2c1.5-.8 2.5-2.3 2.5-4.1zM14 3.2v2.1c2.9.9 5 3.6 5 6.7s-2.1 5.8-5 6.7v2.1c4-.9 7-4.5 7-8.8s-3-7.9-7-8.8z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lead Qualification panel -->
+      <div class="demo-panel" id="panel-leadqual">
+        <div class="voice-ui">
+          <div class="voice-header">
+            <div class="voice-live-badge">
+              <span class="voice-live-dot"></span>LIVE CALL
+            </div>
+            <span class="voice-timer">01:15</span>
+          </div>
+          <div class="voice-center">
+            <div class="voice-avatar-wrap">
+              <div class="voice-avatar-ring"></div>
+              <div class="voice-avatar-ring"></div>
+              <div class="voice-avatar">🧠</div>
+            </div>
+            <div style="text-align:center">
+              <div class="voice-agent-name">Maya · Lead Qualifier</div>
+              <div class="voice-agent-role">NAAZ AI LABS</div>
+            </div>
+            <div class="voice-waveform">
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div>
+            </div>
+          </div>
+          <div class="voice-transcript">
+            <div class="voice-line">
+              <span class="voice-line-speaker ai">AI</span>
+              <span class="voice-line-text ai">What's the size of your current sales team, and are you running any outbound campaigns?</span>
+            </div>
+            <div class="voice-line">
+              <span class="voice-line-speaker usr">You</span>
+              <span class="voice-line-text">We have 8 reps — mostly inbound at the moment.</span>
+            </div>
+          </div>
+          <div class="voice-controls">
+            <button class="voice-btn" title="Mute">
+              <svg viewBox="0 0 24 24"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm6.5 9a.75.75 0 0 1 .75.75 7.25 7.25 0 0 1-6.5 7.21V20h2.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5h2.5v-2.04a7.25 7.25 0 0 1-6.5-7.21.75.75 0 0 1 1.5 0 5.75 5.75 0 0 0 11.5 0 .75.75 0 0 1 .75-.75z"/></svg>
+            </button>
+            <button class="voice-btn voice-btn-end" title="End call">
+              <svg viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+            </button>
+            <button class="voice-btn" title="Volume">
+              <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.8-1-3.3-2.5-4.1v8.2c1.5-.8 2.5-2.3 2.5-4.1zM14 3.2v2.1c2.9.9 5 3.6 5 6.7s-2.1 5.8-5 6.7v2.1c4-.9 7-4.5 7-8.8s-3-7.9-7-8.8z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Appointment Booking panel -->
+      <div class="demo-panel" id="panel-appointment">
+        <div class="voice-ui">
+          <div class="voice-header">
+            <div class="voice-live-badge">
+              <span class="voice-live-dot"></span>LIVE CALL
+            </div>
+            <span class="voice-timer">00:58</span>
+          </div>
+          <div class="voice-center">
+            <div class="voice-avatar-wrap">
+              <div class="voice-avatar-ring"></div>
+              <div class="voice-avatar-ring"></div>
+              <div class="voice-avatar">📅</div>
+            </div>
+            <div style="text-align:center">
+              <div class="voice-agent-name">Sam · Booking Agent</div>
+              <div class="voice-agent-role">NAAZ AI LABS</div>
+            </div>
+            <div class="voice-waveform">
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div><div class="voice-bar"></div>
+              <div class="voice-bar"></div>
+            </div>
+          </div>
+          <div class="voice-transcript">
+            <div class="voice-line">
+              <span class="voice-line-speaker ai">AI</span>
+              <span class="voice-line-text ai">I have Thursday at 2 PM or Friday at 10 AM available — which works better for a 30-minute demo?</span>
+            </div>
+            <div class="voice-line">
+              <span class="voice-line-speaker usr">You</span>
+              <span class="voice-line-text">Thursday at 2 works great.</span>
+            </div>
+          </div>
+          <div class="voice-controls">
+            <button class="voice-btn" title="Mute">
+              <svg viewBox="0 0 24 24"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm6.5 9a.75.75 0 0 1 .75.75 7.25 7.25 0 0 1-6.5 7.21V20h2.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5h2.5v-2.04a7.25 7.25 0 0 1-6.5-7.21.75.75 0 0 1 1.5 0 5.75 5.75 0 0 0 11.5 0 .75.75 0 0 1 .75-.75z"/></svg>
+            </button>
+            <button class="voice-btn voice-btn-end" title="End call">
+              <svg viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+            </button>
+            <button class="voice-btn" title="Volume">
+              <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.8-1-3.3-2.5-4.1v8.2c1.5-.8 2.5-2.3 2.5-4.1zM14 3.2v2.1c2.9.9 5 3.6 5 6.7s-2.1 5.8-5 6.7v2.1c4-.9 7-4.5 7-8.8s-3-7.9-7-8.8z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div class="demo-desc-wrap" id="demoDesc">
+      <span class="demo-desc-tag" id="demoTag">Sales Call</span>
+      <div class="demo-desc-text">
+        <h3 id="demoTitle">AI that sells — without a sales team</h3>
+        <p id="demoText">Our voice agent handles the full outbound sales call — opens the conversation, qualifies the prospect, handles objections, and books a follow-up. Sounds human. Performs at scale.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- AI Ghost Mascot: floating fixed widget -->
+  <div id="ghost-widget" class="ghost-widget" role="img" aria-label="Naaz AI assistant">
+    <div class="ghost-particles" id="ghostParticles"></div>
+    <div class="ghost-body-wrap" id="ghostBodyWrap">
+      <svg viewBox="0 0 115 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Body: arched head + rectangular sides + scalloped skirt -->
+        <path
+          d="M 26 60 C 26 28 74 28 74 60 L 74 118 Q 66 106 58 118 Q 50 130 42 118 Q 34 106 26 118 Z"
+          fill="white" stroke="#111" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>
+        <!-- Left eye -->
+        <ellipse id="ghost-eye-l" cx="40" cy="52" rx="5" ry="6.5" fill="#111"/>
+        <circle cx="42" cy="50" r="2" fill="white"/>
+        <!-- Right eye -->
+        <ellipse id="ghost-eye-r" cx="60" cy="52" rx="5" ry="6.5" fill="#111"/>
+        <circle cx="62" cy="50" r="2" fill="white"/>
+        <!-- Smile -->
+        <path d="M 43 67 Q 50 74 57 67" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round"/>
+        <!-- Earpiece boom -->
+        <line x1="74" y1="44" x2="80" y2="44" stroke="#111" stroke-width="3" stroke-linecap="round"/>
+        <!-- Earpiece cup -->
+        <circle cx="86" cy="44" r="7" fill="white" stroke="#111" stroke-width="3"/>
+        <!-- Earpiece mic arm -->
+        <line x1="86" y1="51" x2="84" y2="61" stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Signal arcs — animate on listening state -->
+        <path id="ghost-signal-1" d="M 93 40 Q 99 44 93 48" fill="none" stroke="#111" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
+        <path id="ghost-signal-2" d="M 97 35 Q 107 44 97 53" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" opacity="0.15"/>
+      </svg>
+    </div>
+    <div class="ghost-speech-bubble" id="ghostSpeech"></div>
+  </div>
+
+  <script>
+
+    const video = document.getElementById('scrollVideo');
+    const section = document.getElementById('scrollSection');
+    const hint = document.getElementById('scrollHint');
+    const progressBar = document.getElementById('progressBar');
+    const flashBang = document.getElementById('flashBang');
+
+    // Track pointer/touch position (viewport coords)
+    let pointerX = window.innerWidth / 2;
+    let pointerY = window.innerHeight / 2;
+
+    window.addEventListener('pointermove', (e) => {
+      pointerX = e.clientX;
+      pointerY = e.clientY;
+    });
+
+    window.addEventListener('touchstart', (e) => {
+      pointerX = e.touches[0].clientX;
+      pointerY = e.touches[0].clientY;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      pointerX = e.touches[0].clientX;
+      pointerY = e.touches[0].clientY;
+    }, { passive: true });
+
+    let rafPending = false;
+
+    function update() {
+      rafPending = false;
+      const scrollY = window.scrollY;
+
+      const sectionTop    = section.offsetTop;
+      const sectionHeight = section.offsetHeight;
+      const viewportHeight = window.innerHeight;
+
+      const scrolled  = (scrollY - sectionTop) / (sectionHeight - viewportHeight);
+      const progress  = Math.min(Math.max(scrolled, 0), 1);
+
+      if (video.readyState >= 1 && video.duration) {
+        video.currentTime = progress * (video.duration / 2);
+      }
+
+      progressBar.style.width = (progress * 100) + '%';
+      hint.style.opacity = progress > 0.05 ? '0' : '1';
+
+      const flashStart = 0.87, flashEnd = 0.90;
+      let flashProgress = 0;
+      if (progress >= flashEnd) {
+        flashProgress = 1;
+      } else if (progress >= flashStart) {
+        const t = (progress - flashStart) / (flashEnd - flashStart);
+        flashProgress = t * t * (3 - 2 * t);
+      }
+      flashBang.style.left = pointerX + 'px';
+      flashBang.style.top  = pointerY + 'px';
+      flashBang.style.transform = `translate(-50%, -50%) scale(${flashProgress})`;
+    }
+
+    function scheduleUpdate() {
+      if (!rafPending) { rafPending = true; requestAnimationFrame(update); }
+    }
+
+    window.addEventListener('scroll', scheduleUpdate, { passive: true });
+
+    video.addEventListener('loadedmetadata', () => {
+      video.currentTime = 0;
+      scheduleUpdate();
+    });
+
+    // Run once on load in case page is pre-scrolled
+    scheduleUpdate();
+
+    // ── Scroll Stack (window scroll, cached positions) ──
+    const sCards     = Array.from(document.querySelectorAll('.scroll-stack-card'));
+    const sEnd       = document.getElementById('stackEnd');
+
+    const S_STACK_POS  = 0.20;
+    const S_SCALE_END  = 0.10;
+    const S_STACK_DIST = 30;
+    const S_ITEM_SCALE = 0.03;
+    const S_BASE_SCALE = 0.85;
+    const S_ITEM_DIST  = 100;
+
+    sCards.forEach((card, i) => {
+      if (i < sCards.length - 1) card.style.marginBottom = S_ITEM_DIST + 'px';
+      card.style.transformOrigin    = 'top center';
+      card.style.willChange         = 'transform';
+      card.style.backfaceVisibility = 'hidden';
+    });
+
+    let cardTops     = [];
+    let endTopCached = 0;
+
+    function cachePositions() {
+      sCards.forEach(c => { c.style.transform = ''; });
+      cardTops     = sCards.map(c => c.getBoundingClientRect().top + window.scrollY);
+      endTopCached = sEnd ? sEnd.getBoundingClientRect().top + window.scrollY : 0;
+      updateStack();
+    }
+
+    function updateStack() {
+      const scrollTop  = window.scrollY;
+      const vh         = window.innerHeight;
+      const stackPosPx = S_STACK_POS * vh;
+      const scaleEndPx = S_SCALE_END  * vh;
+      const pinEnd     = endTopCached - vh / 2;
+
+      sCards.forEach((card, i) => {
+        const cardTop      = cardTops[i];
+        const triggerStart = cardTop - stackPosPx - S_STACK_DIST * i;
+        const triggerEnd   = cardTop - scaleEndPx;
+        const pinStart     = triggerStart;
+
+        let scaleProgress = 0;
+        if (scrollTop >= triggerEnd)        scaleProgress = 1;
+        else if (scrollTop >= triggerStart) scaleProgress = (scrollTop - triggerStart) / (triggerEnd - triggerStart);
+
+        const targetScale = S_BASE_SCALE + i * S_ITEM_SCALE;
+        const scale       = 1 - scaleProgress * (1 - targetScale);
+
+        let translateY = 0;
+        if (scrollTop >= pinStart && scrollTop <= pinEnd) {
+          translateY = scrollTop - cardTop + stackPosPx + S_STACK_DIST * i;
+        } else if (scrollTop > pinEnd) {
+          translateY = pinEnd - cardTop + stackPosPx + S_STACK_DIST * i;
+        }
+
+        card.style.transform = `translate3d(0,${translateY}px,0) scale(${scale})`;
+      });
+    }
+
+    window.addEventListener('load',   cachePositions);
+    window.addEventListener('resize', cachePositions);
+    setTimeout(cachePositions, 200);
+    window.addEventListener('scroll', updateStack, { passive: true });
+
+    // ── Bento dotted wave — 3D perspective projection on Canvas 2D ──
+    (function () {
+      const container = document.getElementById('bento-canvas');
+      const section   = document.getElementById('bentoSection');
+      if (!container) return;
+
+      const canvas = document.createElement('canvas');
+      container.appendChild(canvas);
+      const ctx = canvas.getContext('2d');
+
+      // Match original Three.js component params exactly
+      const SEPARATION = 150, AMOUNTX = 40, AMOUNTY = 60;
+      const CAM_X = 0, CAM_Y = 355, CAM_Z = 1220;
+      const FOV_DEG = 60;
+
+      let W, H, focalLength, count = 0;
+
+      function resize() {
+        W = canvas.width  = section.offsetWidth;
+        H = canvas.height = section.offsetHeight;
+        focalLength = H / (2 * Math.tan(FOV_DEG / 2 * Math.PI / 180));
+      }
+
+      let bentoVisible = false, bentoPending = false, bentoLastTs = 0;
+      const BENTO_FPS = 1000 / 30;
+
+      new IntersectionObserver(entries => {
+        bentoVisible = entries[0].isIntersecting;
+        if (bentoVisible && !bentoPending) { bentoPending = true; requestAnimationFrame(draw); }
+      }, { threshold: 0.05 }).observe(section);
+
+      function draw(ts) {
+        bentoPending = false;
+        if (!bentoVisible) return;
+        if (ts - bentoLastTs < BENTO_FPS) { bentoPending = true; requestAnimationFrame(draw); return; }
+        bentoLastTs = ts;
+
+        ctx.clearRect(0, 0, W, H);
+
+        // Draw far rows first (high iy = far from camera), no sort needed
+        for (let iy = AMOUNTY - 1; iy >= 0; iy--) {
+          for (let ix = 0; ix < AMOUNTX; ix++) {
+            const x3d  = ix * SEPARATION - (AMOUNTX * SEPARATION) / 2;
+            const z3d  = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
+            const y3d  = Math.sin((ix + count) * 0.3) * 50 + Math.sin((iy + count) * 0.5) * 50;
+            const depth = CAM_Z - z3d;
+            if (depth <= 10) continue;
+
+            const fogFactor = Math.max(0, 1 - depth / 6000);
+            if (fogFactor < 0.02) continue;
+
+            const scale = focalLength / depth;
+            const sx    = W / 2 + (x3d - CAM_X) * scale;
+            const sy    = H / 2 - (y3d - CAM_Y) * scale;
+
+            // Skip off-screen dots
+            if (sx < -10 || sx > W + 10 || sy < -10 || sy > H + 10) continue;
+
+            ctx.beginPath();
+            ctx.arc(sx, sy, Math.max(0.4, 2.5 * scale), 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255,255,255,${Math.min(1, fogFactor * 1.6).toFixed(2)})`;
+            ctx.fill();
+          }
+        }
+
+        count += 0.06;
+        bentoPending = true;
+        requestAnimationFrame(draw);
+      }
+
+      resize();
+      window.addEventListener('resize', resize);
+    })();
+
+    // ── Demo tabs ──
+    const demoData = {
+      sales: {
+        url:   'naazailabs.com · AI Sales Call',
+        tag:   'Sales Call',
+        title: 'AI that sells — without a sales team',
+        text:  'Our voice agent handles the full outbound sales call — opens the conversation, qualifies the prospect, handles objections, and books a follow-up. Sounds human. Performs at scale.'
+      },
+      leadqual: {
+        url:   'naazailabs.com · Lead Qualification',
+        tag:   'Lead Qualification',
+        title: 'Never waste time on the wrong leads',
+        text:  'The AI agent calls every inbound lead within seconds, asks the right qualifying questions, scores them, and routes hot leads straight to your team — so you only talk to people ready to buy.'
+      },
+      appointment: {
+        url:   'naazailabs.com · Appointment Booking',
+        tag:   'Appointment Booking',
+        title: 'Book appointments around the clock',
+        text:  'Your AI booking agent handles scheduling calls 24/7 — checks availability, confirms times, sends reminders, and reschedules no-shows automatically. Zero admin, full calendar.'
+      }
+    };
+
+    document.querySelectorAll('.demo-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const key = tab.dataset.tab;
+        // Update tabs
+        document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        // Update panels
+        document.querySelectorAll('.demo-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('panel-' + key).classList.add('active');
+        // Update description
+        const d = demoData[key];
+        document.getElementById('demoBrowserUrl').textContent = d.url;
+        document.getElementById('demoTag').textContent        = d.tag;
+        document.getElementById('demoTitle').textContent      = d.title;
+        document.getElementById('demoText').textContent       = d.text;
+        // reset timer for active panel
+        resetVoiceTimer(key);
+      });
+    });
+
+    // ── Voice UI live timer ──
+    const timerSeeds = { sales: 42, leadqual: 75, appointment: 58 };
+    const timerEls   = {
+      sales:       document.querySelector('#panel-sales .voice-timer'),
+      leadqual:    document.querySelector('#panel-leadqual .voice-timer'),
+      appointment: document.querySelector('#panel-appointment .voice-timer')
+    };
+    const timerSecs  = { sales: 42, leadqual: 75, appointment: 58 };
+    let activeTimerKey = 'sales';
+    let timerInterval  = null;
+
+    function fmtTime(s) {
+      return String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0');
+    }
+
+    function resetVoiceTimer(key) {
+      activeTimerKey = key;
+      timerSecs[key] = timerSeeds[key];
+      if (timerEls[key]) timerEls[key].textContent = fmtTime(timerSecs[key]);
+    }
+
+    timerInterval = setInterval(() => {
+      timerSecs[activeTimerKey]++;
+      if (timerEls[activeTimerKey])
+        timerEls[activeTimerKey].textContent = fmtTime(timerSecs[activeTimerKey]);
+    }, 1000);
+
+    // ── Bento entrance animations ──
+    const bentoCards = document.querySelectorAll('.bento-card');
+
+    const bentoObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          bentoObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+
+    bentoCards.forEach(card => bentoObserver.observe(card));
+  </script>
+
+  <script>
+    // ── Demo Section: ShaderLines background — OffscreenCanvas worker for zero main-thread cost ──
+    (function () {
+      const section = document.querySelector('.demo-section');
+      if (!section) return;
+
+      // Wrap existing content so it sits above the canvas
+      const inner = document.createElement('div');
+      inner.className = 'demo-inner';
+      while (section.firstChild) inner.appendChild(section.firstChild);
+      section.appendChild(inner);
+
+      // Energy rings on top of the shader
+      for (let i = 1; i <= 3; i++) {
+        const r = document.createElement('div');
+        r.className = `demo-ring demo-ring-${i}`;
+        section.insertBefore(r, inner);
+      }
+
+      // Canvas behind everything
+      const canvas = document.createElement('canvas');
+      canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;display:block;image-rendering:pixelated;';
+      section.insertBefore(canvas, section.firstChild);
+
+      const RES = 0.25; // render at 25% — pixelation hides it, saves ~56% GPU fill vs 35%
+
+      function getSize() {
+        return {
+          w: Math.max(1, Math.floor(section.offsetWidth  * RES)),
+          h: Math.max(1, Math.floor(section.offsetHeight * RES))
+        };
+      }
+
+      // ── Try OffscreenCanvas worker path (Chrome/Edge/Firefox) ──
+      if (typeof OffscreenCanvas !== 'undefined' && canvas.transferControlToOffscreen) {
+        const { w, h } = getSize();
+        canvas.width  = w;
+        canvas.height = h;
+
+        const workerSrc = `
+          const FPS_CAP = 1000 / 20;
+          let gl, uTime, uResolution, time = 1.0, lastTs = 0, active = true;
+
+          function mkShader(type, src) {
+            const s = gl.createShader(type);
+            gl.shaderSource(s, src);
+            gl.compileShader(s);
+            return s;
+          }
+
+          function init(canvas) {
+            gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (!gl) return;
+
+            const vsrc = \`attribute vec2 aPos; void main(){ gl_Position=vec4(aPos,0.,1.); }\`;
+            const fsrc = \`
+              precision mediump float;
+              uniform vec2 resolution;
+              uniform float time;
+              float random(in float x){ return fract(sin(x)*1e4); }
+              void main(void){
+                vec2 uv=(gl_FragCoord.xy*2.0-resolution.xy)/min(resolution.x,resolution.y);
+                vec2 fMosaicScal=vec2(4.0,2.0);
+                vec2 vScreenSize=vec2(256.0,256.0);
+                uv.x=floor(uv.x*vScreenSize.x/fMosaicScal.x)/(vScreenSize.x/fMosaicScal.x);
+                uv.y=floor(uv.y*vScreenSize.y/fMosaicScal.y)/(vScreenSize.y/fMosaicScal.y);
+                float t=time*0.06+random(uv.x)*0.4;
+                float lineWidth=0.0008;
+                float len=length(uv);
+                vec3 color=vec3(0.0);
+                for(int j=0;j<3;j++){
+                  for(int i=0;i<4;i++){
+                    color[j]+=lineWidth*float(i*i)/abs(fract(t-0.01*float(j)+float(i)*0.01)-len);
+                  }
+                }
+                gl_FragColor=vec4(color[2],color[1],color[0],1.0);
+              }
+            \`;
+
+            const prog = gl.createProgram();
+            gl.attachShader(prog, mkShader(gl.VERTEX_SHADER,   vsrc));
+            gl.attachShader(prog, mkShader(gl.FRAGMENT_SHADER, fsrc));
+            gl.linkProgram(prog);
+            gl.useProgram(prog);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+            const aPos = gl.getAttribLocation(prog, 'aPos');
+            gl.enableVertexAttribArray(aPos);
+            gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 8, 0);
+
+            uTime       = gl.getUniformLocation(prog, 'time');
+            uResolution = gl.getUniformLocation(prog, 'resolution');
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.uniform2f(uResolution, canvas.width, canvas.height);
+          }
+
+          function frame(ts) {
+            if (!active) return;
+            requestAnimationFrame(frame);
+            if (ts - lastTs < FPS_CAP) return;
+            lastTs = ts;
+            time += 0.05;
+            gl.uniform1f(uTime, time);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+          }
+
+          self.onmessage = function(e) {
+            if (e.data.type === 'init') {
+              init(e.data.canvas);
+              if (gl) requestAnimationFrame(frame);
+            } else if (e.data.type === 'resize') {
+              if (!gl) return;
+              gl.canvas.width  = e.data.w;
+              gl.canvas.height = e.data.h;
+              gl.viewport(0, 0, e.data.w, e.data.h);
+              gl.uniform2f(uResolution, e.data.w, e.data.h);
+            } else if (e.data.type === 'pause') {
+              active = false;
+            } else if (e.data.type === 'resume') {
+              if (!active) { active = true; requestAnimationFrame(frame); }
+            }
+          };
+        `;
+
+        const blob   = new Blob([workerSrc], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(blob));
+        const offscreen = canvas.transferControlToOffscreen();
+        worker.postMessage({ type: 'init', canvas: offscreen }, [offscreen]);
+
+        // Pause/resume via IntersectionObserver — worker does the rAF
+        new IntersectionObserver(entries => {
+          worker.postMessage({ type: entries[0].isIntersecting ? 'resume' : 'pause' });
+        }).observe(section);
+
+        window.addEventListener('resize', () => {
+          const { w, h } = getSize();
+          worker.postMessage({ type: 'resize', w, h });
+        });
+
+      } else {
+        // ── Fallback: main-thread WebGL (Safari / old browsers) ──
+        const { w, h } = getSize();
+        canvas.width  = w;
+        canvas.height = h;
+
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (!gl) { canvas.remove(); return; }
+
+        function mkShader(type, src) {
+          const s = gl.createShader(type);
+          gl.shaderSource(s, src); gl.compileShader(s); return s;
+        }
+
+        const vsrc = `attribute vec2 aPos; void main(){ gl_Position=vec4(aPos,0.,1.); }`;
+        const fsrc = `
+          precision mediump float;
+          uniform vec2 resolution; uniform float time;
+          float random(in float x){ return fract(sin(x)*1e4); }
+          void main(void){
+            vec2 uv=(gl_FragCoord.xy*2.0-resolution.xy)/min(resolution.x,resolution.y);
+            vec2 fMosaicScal=vec2(4.0,2.0); vec2 vScreenSize=vec2(256.0,256.0);
+            uv.x=floor(uv.x*vScreenSize.x/fMosaicScal.x)/(vScreenSize.x/fMosaicScal.x);
+            uv.y=floor(uv.y*vScreenSize.y/fMosaicScal.y)/(vScreenSize.y/fMosaicScal.y);
+            float t=time*0.06+random(uv.x)*0.4;
+            float lineWidth=0.0008; float len=length(uv);
+            vec3 color=vec3(0.0);
+            for(int j=0;j<3;j++){ for(int i=0;i<4;i++){
+              color[j]+=lineWidth*float(i*i)/abs(fract(t-0.01*float(j)+float(i)*0.01)-len);
+            }}
+            gl_FragColor=vec4(color[2],color[1],color[0],1.0);
+          }`;
+
+        const prog = gl.createProgram();
+        gl.attachShader(prog, mkShader(gl.VERTEX_SHADER, vsrc));
+        gl.attachShader(prog, mkShader(gl.FRAGMENT_SHADER, fsrc));
+        gl.linkProgram(prog); gl.useProgram(prog);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+        const aPos = gl.getAttribLocation(prog, 'aPos');
+        gl.enableVertexAttribArray(aPos);
+        gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 8, 0);
+
+        const uTime = gl.getUniformLocation(prog, 'time');
+        const uResolution = gl.getUniformLocation(prog, 'resolution');
+        gl.viewport(0, 0, w, h);
+        gl.uniform2f(uResolution, w, h);
+
+        let time = 1.0, rafId = null, lastTs = 0;
+        const FPS_CAP = 1000 / 20;
+
+        function frame(ts) {
+          rafId = requestAnimationFrame(frame);
+          if (ts - lastTs < FPS_CAP) return;
+          lastTs = ts; time += 0.05;
+          gl.uniform1f(uTime, time);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+
+        new IntersectionObserver(entries => {
+          if (entries[0].isIntersecting) { if (!rafId) rafId = requestAnimationFrame(frame); }
+          else { cancelAnimationFrame(rafId); rafId = null; }
+        }).observe(section);
+
+        window.addEventListener('resize', () => {
+          const { w: nw, h: nh } = getSize();
+          canvas.width = nw; canvas.height = nh;
+          gl.viewport(0, 0, nw, nh);
+          gl.uniform2f(uResolution, nw, nh);
+        });
+      }
+    })();
+  </script>
+
+  <script>
+    // ── Ghost Mascot State Machine ──
+    (function () {
+      const widget     = document.getElementById('ghost-widget');
+      const speech     = document.getElementById('ghostSpeech');
+      const pContainer = document.getElementById('ghostParticles');
+      if (!widget) return;
+
+      let state = 'idle';
+      let sleepTimer, scrollStateTimer;
+
+      function setState(s) {
+        if (state === s) return;
+        state = s;
+        widget.className = 'ghost-widget ' + s;
+      }
+
+      function say(text, ttl) {
+        speech.textContent = text;
+        speech.classList.add('show');
+        if (ttl) setTimeout(() => speech.classList.remove('show'), ttl);
+      }
+
+      function hush() { speech.classList.remove('show'); }
+
+      // ── Particle spawn ──
+      function spawnBit() {
+        const el = document.createElement('span');
+        el.className = 'ghost-bit';
+        el.textContent = Math.random() > 0.5 ? '1' : '0';
+
+        const cx = 60, cy = 80;
+        const angle = Math.random() * Math.PI * 2;
+        const r = 22 + Math.random() * 22;
+        el.style.left = (cx + Math.cos(angle) * r * 0.5) + 'px';
+        el.style.top  = (cy + Math.sin(angle) * r * 0.6) + 'px';
+
+        const dist = 32 + Math.random() * 36;
+        el.style.setProperty('--dx', (Math.cos(angle) * dist).toFixed(1) + 'px');
+        el.style.setProperty('--dy', (Math.sin(angle) * dist - 14).toFixed(1) + 'px');
+        const dur = (1.3 + Math.random() * 1.5).toFixed(2);
+        el.style.setProperty('--d', dur + 's');
+
+        pContainer.appendChild(el);
+        setTimeout(() => el.remove(), parseFloat(dur) * 1000 + 100);
+      }
+
+      function spawnZzz() {
+        const idx  = Math.floor(Math.random() * 3);
+        const texts = ['Z', 'Zz', 'Zzz'];
+        const sizes = [10, 13, 16];
+        const el = document.createElement('span');
+        el.className = 'ghost-zzz';
+        el.textContent = texts[idx];
+        el.style.fontSize = sizes[idx] + 'px';
+        el.style.left = (22 + Math.random() * 32) + 'px';
+        el.style.top  = '24px';
+        el.style.setProperty('--dx', (-8 + Math.random() * 16).toFixed(1) + 'px');
+        el.style.setProperty('--d', '2.2s');
+        el.style.setProperty('--delay', '0s');
+        pContainer.appendChild(el);
+        setTimeout(() => el.remove(), 2300);
+      }
+
+      // Particle loop
+      setInterval(() => {
+        if (state === 'sleep') {
+          spawnZzz();
+        } else {
+          spawnBit();
+          if (state === 'listening' || state === 'thinking') spawnBit();
+        }
+      }, 380);
+
+      // ── Inactivity → sleep ──
+      function resetSleep() {
+        clearTimeout(sleepTimer);
+        if (state === 'sleep') { setState('idle'); hush(); }
+        sleepTimer = setTimeout(() => { setState('sleep'); say('Zzz...'); }, 40000);
+      }
+
+      ['scroll', 'pointermove', 'keydown'].forEach(ev =>
+        window.addEventListener(ev, resetSleep, { passive: true }));
+      window.addEventListener('click', resetSleep);
+
+      // ── Hover ──
+      widget.addEventListener('mouseenter', () => {
+        if (state === 'sleep') { resetSleep(); return; }
+        if (state === 'idle') { setState('listening'); say('Need help?'); }
+      });
+
+      widget.addEventListener('mouseleave', () => {
+        if (state === 'listening') { setState('idle'); hush(); }
+      });
+
+      // ── Click ──
+      widget.addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetSleep();
+        setState('thinking');
+        say('Thinking...');
+        setTimeout(() => {
+          setState('idle');
+          say('How can I help?', 2800);
+        }, 1800);
+      });
+
+      // ── Scroll-aware: go listening when bento section enters view ──
+      window.addEventListener('scroll', () => {
+        if (state !== 'idle') return;
+        const bento = document.getElementById('bentoSection');
+        if (!bento) return;
+        const r = bento.getBoundingClientRect();
+        if (r.top < window.innerHeight * 0.7 && r.bottom > 0) {
+          setState('listening');
+          clearTimeout(scrollStateTimer);
+          scrollStateTimer = setTimeout(() => {
+            if (state === 'listening') setState('idle');
+          }, 2500);
+        }
+      }, { passive: true });
+
+      // ── Side switching: ghost moves left/right as user scrolls sections ──
+      // Each entry defines at which section the ghost docks to which side.
+      const sidePlan = [
+        { selector: '.scroll-stack-wrapper', side: 'left'  },
+        { selector: '#bentoSection',          side: 'right' },
+        { selector: '.demo-section',          side: 'left'  },
+      ];
+
+      let currentSide = 'right';
+
+      function ghostRightX() { return window.innerWidth - 156; }
+      function ghostLeftX()  { return 36; }
+
+      // Lerp state
+      let ghostX  = ghostRightX();
+      let targetX = ghostX;
+      widget.style.left = ghostX + 'px';
+
+      // Fixed layer in <body> so trail bits stay in place as ghost moves
+      const trailLayer = document.createElement('div');
+      trailLayer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:299;overflow:hidden;';
+      document.body.appendChild(trailLayer);
+
+      let prevGhostX = ghostX;
+      let tiltAngle  = 0;
+      let trailTick  = 0;
+
+      const ghostSVG = widget.querySelector('.ghost-body-wrap svg');
+
+      const TRAIL_MAX = 12;
+
+      function spawnTrailBit(x) {
+        // Evict oldest if at cap — avoids unbounded DOM growth
+        if (trailLayer.childElementCount >= TRAIL_MAX) trailLayer.firstChild?.remove();
+
+        const bit = document.createElement('span');
+        bit.className = 'ghost-trail-bit';
+        bit.textContent = Math.random() > 0.5 ? '1' : '0';
+        bit.style.fontSize = (9 + Math.random() * 7).toFixed(0) + 'px';
+        bit.style.left = (x + 10 + Math.random() * 100) + 'px';
+        bit.style.top  = (window.innerHeight - 36 - 20 - 55 + (Math.random() - 0.5) * 95) + 'px';
+        const dur = (0.6 + Math.random() * 0.9).toFixed(2);
+        bit.style.setProperty('--dur', dur + 's');
+        trailLayer.appendChild(bit);
+        setTimeout(() => bit.remove(), parseFloat(dur) * 1000 + 80);
+      }
+
+      // Move loop: idle-aware — stops rAF when ghost is fully settled
+      let moveRaf = null;
+
+      function scheduleMove() {
+        if (!moveRaf) moveRaf = requestAnimationFrame(moveLoop);
+      }
+
+      function moveLoop() {
+        moveRaf = null;
+        const dx = targetX - ghostX;
+        const isMoving = Math.abs(dx) > 0.1;
+
+        if (isMoving) {
+          ghostX += dx * 0.15;
+          widget.style.left = ghostX.toFixed(1) + 'px';
+        }
+
+        const frameDelta = ghostX - prevGhostX;
+        const targetTilt = Math.max(-26, Math.min(26, frameDelta * 2.4));
+        tiltAngle += (targetTilt - tiltAngle) * 0.18;
+        const isTilting = Math.abs(tiltAngle) > 0.05;
+
+        if (isMoving || isTilting) {
+          ghostSVG.style.transform = `rotate(${tiltAngle.toFixed(2)}deg)`;
+        }
+
+        const spd = Math.abs(frameDelta);
+        if (spd > 0.3) {
+          trailTick++;
+          const every = spd > 10 ? 1 : spd > 5 ? 2 : spd > 2 ? 3 : 6;
+          if (trailTick % every === 0) {
+            spawnTrailBit(ghostX);
+            if (spd > 6) spawnTrailBit(ghostX);
+          }
+        }
+
+        prevGhostX = ghostX;
+
+        // Only keep looping while something is still animating
+        if (isMoving || isTilting) moveRaf = requestAnimationFrame(moveLoop);
+      }
+
+      scheduleMove(); // initial position
+
+      function setSide(side, instant) {
+        currentSide = side;
+        targetX = side === 'left' ? ghostLeftX() : ghostRightX();
+        if (instant) { ghostX = targetX; widget.style.left = ghostX + 'px'; }
+        else scheduleMove(); // wake up the loop to animate to new target
+
+        if (side === 'left') {
+          speech.style.left  = '0';
+          speech.style.right = 'auto';
+          speech.style.borderRadius = '14px 14px 14px 4px';
+          widget.classList.add('side-left');
+          widget.classList.remove('side-right');
+        } else {
+          speech.style.right = '0';
+          speech.style.left  = 'auto';
+          speech.style.borderRadius = '14px 14px 4px 14px';
+          widget.classList.add('side-right');
+          widget.classList.remove('side-left');
+        }
+      }
+
+      function updateGhostSide() {
+        const scrollMid = window.scrollY + window.innerHeight * 0.5;
+        let newSide = 'right';
+        for (const s of sidePlan) {
+          const el = document.querySelector(s.selector);
+          if (!el) continue;
+          if (scrollMid >= el.offsetTop) newSide = s.side;
+        }
+        if (newSide !== currentSide) setSide(newSide, false);
+      }
+
+      window.addEventListener('scroll', updateGhostSide, { passive: true });
+      window.addEventListener('resize', () => setSide(currentSide, true), { passive: true });
+
+      setSide('right', true);
+
+      // ── Page-load intro ──
+      setTimeout(() => {
+        setState('listening');
+        say('Hello! I\'m your AI guide.');
+        setTimeout(() => { setState('idle'); hush(); resetSleep(); }, 3200);
+      }, 1400);
+
+      resetSleep();
+    })();
+  </script>
+
+</body>
+</html>
