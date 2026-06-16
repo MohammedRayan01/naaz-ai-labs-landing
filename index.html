@@ -2571,42 +2571,46 @@
     })();
   </script>
 
-  <!-- Dograh Voice Widget -->
+  <!-- Lynq Voice Widget -->
   <script>
     (function(d, s, id) {
       var js, fjs = d.getElementsByTagName(s)[0];
       if (d.getElementById(id)) return;
       js = d.createElement(s); js.id = id;
-      js.src = 'http://13.233.107.204/embed/dograh-widget.js?token=emb_mLRVvdzbm70MF-JVfR52Ncgo7a07umcOfI5ZnENJYeo&environment=local&apiEndpoint=https://lynq.naazailabs.com';
+      js.src = 'https://lynq.naazailabs.com/embed/lynq-widget.js?token=emb_mLRVvdzbm70MF-JVfR52Ncgo7a07umcOfI5ZnENJYeo&environment=local&apiEndpoint=https://lynq.naazailabs.com';
       js.async = true;
       fjs.parentNode.insertBefore(js, fjs);
-    }(document, 'script', 'dograh-widget'));
+    }(document, 'script', 'lynq-widget'));
   </script>
 
   <script>
-    // Wire the appointment booking button to the Dograh widget
+    // Wire the appointment booking button to the Lynq widget
     document.getElementById('dograh-launch-btn').addEventListener('click', function() {
-      // Try official API first
-      if (window.DograhWidget && typeof window.DograhWidget.open === 'function') {
-        window.DograhWidget.open();
+      if (window.LynqWidget && typeof window.LynqWidget.start === 'function') {
+        window.LynqWidget.start();
         return;
       }
       // Fall back: find and click the widget's own trigger button in the DOM
-      var btn = document.querySelector('[id*="dograh"] button, [class*="dograh"] button, [data-dograh] button');
-      if (btn) { btn.click(); return; }
-      // Last resort: dispatch a custom event the widget may listen for
-      window.dispatchEvent(new CustomEvent('dograh:open'));
+      var btn = document.querySelector('[id*="lynq"] button, [class*="lynq"] button');
+      if (btn) { btn.click(); }
     });
 
-    // Light up waveform when widget call is active
-    window.addEventListener('dograh:call:start', function() {
-      var wv = document.getElementById('appt-waveform');
-      if (wv) wv.style.opacity = '1';
-    });
-    window.addEventListener('dograh:call:end', function() {
-      var wv = document.getElementById('appt-waveform');
-      if (wv) wv.style.opacity = '0.3';
-    });
+    // Light up waveform when widget call is active.
+    // Widget loads async — poll until ready then register callbacks.
+    (function waitForWidget(attempts) {
+      if (window.LynqWidget) {
+        window.LynqWidget.onCallConnected(function() {
+          var wv = document.getElementById('appt-waveform');
+          if (wv) wv.style.opacity = '1';
+        });
+        window.LynqWidget.onCallEnd(function() {
+          var wv = document.getElementById('appt-waveform');
+          if (wv) wv.style.opacity = '0.3';
+        });
+      } else if (attempts > 0) {
+        setTimeout(function() { waitForWidget(attempts - 1); }, 200);
+      }
+    })(25);
   </script>
 
 </body>
