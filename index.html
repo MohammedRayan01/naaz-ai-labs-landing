@@ -2585,116 +2585,123 @@
   </script>
 
   <script>
-    // Wire the appointment booking button to the Lynq widget
+    // ── Lynq voice widget integration ────────────────────────────────────────
     (function() {
       var btn    = document.getElementById('dograh-launch-btn');
       var label  = document.getElementById('dograh-btn-label');
       var status = document.getElementById('dograh-status');
+      var _ctx   = null; // AudioContext — created on click, stays running forever
 
       function setStatus(msg, color) {
-        status.textContent = msg;
+        status.textContent  = msg;
         status.style.color  = color || 'rgba(255,255,255,0.55)';
         status.style.opacity = '1';
       }
 
+      // ── Button click ──────────────────────────────────────────────────────
       btn.addEventListener('click', function() {
-        // ── Check widget loaded ──
         if (!window.LynqWidget || typeof window.LynqWidget.start !== 'function') {
           setStatus('⚠ Voice service offline — try again shortly', '#f87171');
           return;
         }
 
-        // ── Step 1: Create + play audio element RIGHT NOW inside user gesture ──
-        // audio.play() MUST be called synchronously during the click or Chrome blocks it
-        var audio = document.getElementById('lynq-audio-out') || document.createElement('audio');
-        audio.id       = 'lynq-audio-out';
-        audio.autoplay = true;
-        if (!audio.parentNode) document.body.appendChild(audio);
-        audio.play().catch(function(e) {
-          audio.muted = true;
-          audio.play().then(function() { audio.muted = false; }).catch(function(){});
-        });
+        // Create AudioContext SYNCHRONOUSLY inside the user gesture.
+        // A context created this way is always in 'running' state — no autoplay
+        // policy ever applies when we later connect sources to it.
+        if (!_ctx) {
+          try { _ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+          catch(e) { console.warn('AudioContext unavailable:', e); }
+        }
+        if (_ctx && _ctx.state === 'suspended') _ctx.resume();
+        window.__lynqCtx = _ctx; // expose for lynqAttachAudio
 
-        // ── Step 2: Start the call ──
         label.textContent = 'Connecting…';
         btn.style.opacity = '0.7';
         btn.disabled      = true;
         setStatus('Dialing Sam · Booking Agent…', 'rgba(255,255,255,0.55)');
-
         window.LynqWidget.start();
       });
-    })();
 
-    function lynqAttachAudio() {
-      try {
-        var state    = window.LynqWidget.getState();
-        var receiver = state.pc && state.pc.getReceivers().find(function(r) { return r.track.kind === 'audio'; });
-        if (!receiver || receiver.track.readyState !== 'live') return false;
+      // ── Audio attachment — called once ICE reaches connected/completed ─────
+      window.lynqAttachAudio = function() {
+        try {
+          var state    = window.LynqWidget.getState();
+          var receiver = state.pc && state.pc.getReceivers().find(function(r) { return r.track.kind === 'audio'; });
+          if (!receiver) { console.warn('lynqAttachAudio: no receiver'); return false; }
 
-        var audio = document.getElementById('lynq-audio-out');
-        if (!audio) return false; // audio el must exist (created on click)
+          var track = receiver.track;
+          console.log('lynqAttachAudio track:', track.readyState, 'muted:', track.muted, 'enabled:', track.enabled);
 
-        // Only set srcObject — never call play() here (outside user gesture = blocked)
-        var stream = new MediaStream([receiver.track]);
-        audio.srcObject = stream;
-        console.log('Lynq audio attached');
+          function connect(t) {
+            var ctx = window.__lynqCtx;
+            if (!ctx) { console.warn('lynqAttachAudio: no AudioContext'); return; }
+            // Disconnect any previous source to avoid duplicate output
+            if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(e){} }
+            var stream = new MediaStream([t]);
+            window.__lynqSource = ctx.createMediaStreamSource(stream);
+            window.__lynqSource.connect(ctx.destination);
+            console.log('Lynq audio routed via AudioContext, state:', ctx.state);
+          }
 
-        var wv = document.getElementById('appt-waveform');
-        if (wv) wv.style.opacity = '1';
-        return true;
-      } catch(e) { console.warn('lynqAttachAudio error:', e); return false; }
-    }
+          connect(track);
 
-    // Watch ICE state directly — don't rely on widget callbacks
-    function lynqWatchPC(pc) {
-      var btn    = document.getElementById('dograh-launch-btn');
-      var label  = document.getElementById('dograh-btn-label');
-      var status = document.getElementById('dograh-status');
+          // Some WebRTC impls deliver the track in muted state initially;
+          // re-connect when it actually carries audio data
+          track.onunmute = function() { console.log('track unmuted — reconnecting'); connect(track); };
 
-      pc.addEventListener('iceconnectionstatechange', function() {
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-          lynqAttachAudio();
-          if (label) label.textContent = 'End Call';
-          if (btn)   { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = 'rgba(239,68,68,0.25)'; btn.style.borderColor = 'rgba(239,68,68,0.6)'; }
-          if (status){ status.textContent = '● Connected to Sam'; status.style.color = '#4ade80'; }
-        }
-        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
           var wv = document.getElementById('appt-waveform');
-          if (wv) wv.style.opacity = '0.3';
-          var a = document.getElementById('lynq-audio-out');
-          if (a) a.srcObject = null;
-          if (label) label.textContent = 'Book an Appointment';
-          if (btn)   { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = ''; btn.style.borderColor = ''; }
-          if (status){ status.textContent = 'Call ended'; status.style.color = 'rgba(255,255,255,0.4)'; }
-        }
-      });
-      // Also try immediately in case already connected
-      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-        lynqAttachAudio();
-      }
-    }
+          if (wv) wv.style.opacity = '1';
+          return true;
+        } catch(e) { console.warn('lynqAttachAudio error:', e); return false; }
+      };
 
-    // Poll until widget exposes pc, then attach watcher
-    (function waitForPC(attempts) {
-      if (window.LynqWidget) {
-        var state = window.LynqWidget.getState();
-        if (state.pc) {
-          lynqWatchPC(state.pc);
-        } else {
-          // pc not created yet — watch for it after button click
-          document.getElementById('dograh-launch-btn').addEventListener('click', function() {
-            var tries = 0;
-            var poll = setInterval(function() {
-              var s = window.LynqWidget.getState();
-              if (s.pc) { lynqWatchPC(s.pc); clearInterval(poll); }
-              if (++tries > 40) clearInterval(poll);
-            }, 250);
-          }, { once: true });
+      // ── ICE state watcher ─────────────────────────────────────────────────
+      function lynqWatchPC(pc) {
+        pc.addEventListener('iceconnectionstatechange', function() {
+          var s = pc.iceConnectionState;
+          console.log('ICE:', s);
+          if (s === 'connected' || s === 'completed') {
+            window.lynqAttachAudio();
+            if (label)  label.textContent = 'End Call';
+            if (btn)    { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = 'rgba(239,68,68,0.25)'; btn.style.borderColor = 'rgba(239,68,68,0.6)'; }
+            if (status) setStatus('● Connected to Sam', '#4ade80');
+          }
+          if (s === 'disconnected' || s === 'closed' || s === 'failed') {
+            if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(e){} window.__lynqSource = null; }
+            var wv = document.getElementById('appt-waveform');
+            if (wv) wv.style.opacity = '0.3';
+            if (label)  label.textContent = 'Book an Appointment';
+            if (btn)    { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = ''; btn.style.borderColor = ''; }
+            if (status) setStatus('Call ended', 'rgba(255,255,255,0.4)');
+          }
+        });
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          window.lynqAttachAudio();
         }
-      } else if (attempts > 0) {
-        setTimeout(function() { waitForPC(attempts - 1); }, 200);
       }
-    })(25);
+
+      // ── Wait for widget + PC ──────────────────────────────────────────────
+      function waitForPC(attempts) {
+        if (window.LynqWidget) {
+          var state = window.LynqWidget.getState();
+          if (state && state.pc) {
+            lynqWatchPC(state.pc);
+          } else {
+            btn.addEventListener('click', function() {
+              var tries = 0;
+              var poll = setInterval(function() {
+                var s = window.LynqWidget.getState();
+                if (s && s.pc) { lynqWatchPC(s.pc); clearInterval(poll); }
+                if (++tries > 60) clearInterval(poll);
+              }, 200);
+            }, { once: true });
+          }
+        } else if (attempts > 0) {
+          setTimeout(function() { waitForPC(attempts - 1); }, 200);
+        }
+      }
+      waitForPC(30);
+    })();
   </script>
 
 </body>
