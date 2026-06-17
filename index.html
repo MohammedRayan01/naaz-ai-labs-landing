@@ -2639,17 +2639,17 @@
           var y = H / 2 + v * H * 0.34;
           i === 0 ? c.moveTo(i * sw, y) : c.lineTo(i * sw, y);
         }
-        // glowing stroke
-        c.save();
-        c.shadowBlur  = 18;
-        c.shadowColor = 'rgba(139,92,246,0.75)';
-        c.strokeStyle = 'rgba(190,160,255,0.8)';
-        c.lineWidth   = 1.8;
+        // Wide soft stroke (simulates glow without shadowBlur — shadowBlur causes 177ms rAF stalls)
+        c.strokeStyle = 'rgba(139,92,246,0.22)';
+        c.lineWidth   = 8;
         c.stroke();
-        c.restore();
-        // subtle fill
+        // Sharp line on top
+        c.strokeStyle = 'rgba(200,170,255,0.85)';
+        c.lineWidth   = 1.5;
+        c.stroke();
+        // Subtle fill
         c.lineTo(W, H / 2); c.lineTo(0, H / 2); c.closePath();
-        c.fillStyle = 'rgba(99,102,241,0.07)';
+        c.fillStyle = 'rgba(99,102,241,0.06)';
         c.fill();
       }
 
@@ -2668,53 +2668,68 @@
 
     // ── Demo rings — idle breathe + audio-reactive pulse ─────────────────────
     (function() {
-      var rings = Array.from(document.querySelectorAll('.demo-ring'));
-      if (!rings.length) return;
+      // Rings are created dynamically by the demo section setup script,
+      // so we query lazily on first use instead of at IIFE run time.
+      var _rings  = null;
+      function getRings() {
+        if (!_rings || !_rings.length) _rings = Array.from(document.querySelectorAll('.demo-ring'));
+        return _rings;
+      }
 
-      // Base opacities per ring (inner→outer)
-      var BASE_OP = [0.45, 0.25, 0.10];
-      var _an     = null;  // AnalyserNode when call is live
-      var _fb     = null;  // frequency buffer
+      var BASE_OP  = [0.45, 0.25, 0.10];
+      var _an      = null;
+      var _fb      = null;
+      var _speaking = false; // set by data channel rtf-bot-started/stopped-speaking
 
-      // Smooth RMS per ring (separate so inner reacts fastest)
       var smooth  = [0, 0, 0];
-      var ATTACK  = [0.40, 0.28, 0.18];
-      var RELEASE = [0.88, 0.92, 0.96];
+      var ATTACK  = [0.45, 0.30, 0.18];
+      var RELEASE = [0.86, 0.91, 0.95];
 
       (function loop(t) {
         requestAnimationFrame(loop);
+        var rings = getRings();
+        if (!rings.length) return;
+
         var rms = 0;
         if (_an && _fb) {
           _an.getByteFrequencyData(_fb);
           var sum = 0;
           for (var i = 0; i < _fb.length; i++) sum += _fb[i];
-          rms = (sum / _fb.length) / 255; // 0→1
+          rms = (sum / _fb.length) / 255;
+          // Boost when server says bot is speaking — ensures rings pulse even if
+          // analyser RMS is low due to codec or volume issues
+          if (_speaking) rms = Math.max(rms, 0.35);
         }
 
         for (var r = 0; r < rings.length; r++) {
           if (_an) {
-            // Audio-reactive: fast attack, slow release
             smooth[r] = rms > smooth[r]
               ? smooth[r] * (1 - ATTACK[r])  + rms * ATTACK[r]
               : smooth[r] * RELEASE[r]        + rms * (1 - RELEASE[r]);
           } else {
-            // Idle: gentle sine breathe, offset per ring
-            var phase = t * 0.00055 + r * 2.1;
-            smooth[r] = 0.25 + 0.2 * Math.sin(phase);
+            smooth[r] = 0.25 + 0.2 * Math.sin(t * 0.00055 + r * 2.1);
           }
-
-          var op    = BASE_OP[r] * (0.4 + smooth[r] * 0.6);
-          var sc    = 1 + smooth[r] * (r === 0 ? 0.08 : r === 1 ? 0.05 : 0.03);
+          var op = BASE_OP[r] * (0.4 + smooth[r] * 0.6);
+          // brightness via filter — doesn't conflict with CSS transform animation
+          var br = 1 + smooth[r] * (r === 0 ? 1.8 : r === 1 ? 1.2 : 0.7);
           rings[r].style.opacity = op.toFixed(3);
-          rings[r].style.scale   = sc.toFixed(4);
+          rings[r].style.filter  = 'brightness(' + br.toFixed(2) + ')';
         }
       })(0);
 
       window.__demoRingSetAnalyser = function(a) {
-        _an = a;
-        _fb = a ? new Uint8Array(a.frequencyBinCount) : null;
-        if (!a) smooth = [0, 0, 0]; // reset on disconnect
+        _an      = a;
+        _fb      = a ? new Uint8Array(a.frequencyBinCount) : null;
+        _speaking = false;
+        if (!a) {
+          smooth = [0, 0, 0];
+          var rings = getRings();
+          rings.forEach(function(ring) { ring.style.filter = ''; });
+        }
       };
+
+      // Called by data channel watcher
+      window.__demoRingSpeaking = function(on) { _speaking = on; };
     })();
 
     // ── Lynq voice widget integration ────────────────────────────────────────
@@ -2829,6 +2844,19 @@
         startWaveformSync(analyser);
       }
 
+      function endCall() {
+        if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(x){} window.__lynqSource = null; }
+        if (window.__apptBgSetAnalyser)   window.__apptBgSetAnalyser(null);
+        if (window.__demoRingSetAnalyser) window.__demoRingSetAnalyser(null);
+        if (window.__demoRingSpeaking)    window.__demoRingSpeaking(false);
+        stopWaveformSync();
+        var wv = document.getElementById('appt-waveform');
+        if (wv) wv.style.opacity = '0.3';
+        if (label)  label.textContent = 'Book an Appointment';
+        if (btn)    { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = ''; btn.style.borderColor = ''; }
+        if (status) setStatus('Call ended', 'rgba(255,255,255,0.4)');
+      }
+
       // ── PC watcher ────────────────────────────────────────────────────────
       function lynqWatchPC(pc) {
         pc.addEventListener('track', function(e) {
@@ -2840,6 +2868,18 @@
           if (wv) wv.style.opacity = '1';
         });
 
+        // Data channel carries rtf-bot-started/stopped-speaking from Pipecat
+        // Use these to directly drive the ring brightness regardless of analyser RMS
+        pc.addEventListener('datachannel', function(evt) {
+          evt.channel.addEventListener('message', function(m) {
+            try {
+              var msg = JSON.parse(m.data);
+              if (msg.type === 'rtf-bot-started-speaking' && window.__demoRingSpeaking) window.__demoRingSpeaking(true);
+              if (msg.type === 'rtf-bot-stopped-speaking' && window.__demoRingSpeaking) window.__demoRingSpeaking(false);
+            } catch(x){}
+          });
+        });
+
         pc.addEventListener('iceconnectionstatechange', function() {
           var s = pc.iceConnectionState;
           if (s === 'connected' || s === 'completed') {
@@ -2847,17 +2887,7 @@
             if (btn)    { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = 'rgba(239,68,68,0.25)'; btn.style.borderColor = 'rgba(239,68,68,0.6)'; }
             if (status) setStatus('● Connected to Sam', '#4ade80');
           }
-          if (s === 'disconnected' || s === 'closed' || s === 'failed') {
-            if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(x){} window.__lynqSource = null; }
-            if (window.__apptBgSetAnalyser)   window.__apptBgSetAnalyser(null);
-            if (window.__demoRingSetAnalyser) window.__demoRingSetAnalyser(null);
-            stopWaveformSync();
-            var wv = document.getElementById('appt-waveform');
-            if (wv) wv.style.opacity = '0.3';
-            if (label)  label.textContent = 'Book an Appointment';
-            if (btn)    { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = ''; btn.style.borderColor = ''; }
-            if (status) setStatus('Call ended', 'rgba(255,255,255,0.4)');
-          }
+          if (s === 'disconnected' || s === 'closed' || s === 'failed') endCall();
         });
       }
 
