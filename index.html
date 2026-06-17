@@ -2635,12 +2635,25 @@
           function connect(t) {
             var ctx = window.__lynqCtx;
             if (!ctx) { console.warn('lynqAttachAudio: no AudioContext'); return; }
-            // Disconnect any previous source to avoid duplicate output
             if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(e){} }
+            if (window.__lynqAnalyser) { try { window.__lynqAnalyser.disconnect(); } catch(e){} }
             var stream = new MediaStream([t]);
-            window.__lynqSource = ctx.createMediaStreamSource(stream);
-            window.__lynqSource.connect(ctx.destination);
-            console.log('Lynq audio routed via AudioContext, state:', ctx.state);
+            window.__lynqSource   = ctx.createMediaStreamSource(stream);
+            window.__lynqAnalyser = ctx.createAnalyser();
+            window.__lynqAnalyser.fftSize = 256;
+            window.__lynqSource.connect(window.__lynqAnalyser);
+            window.__lynqAnalyser.connect(ctx.destination);
+            console.log('Lynq audio routed via AudioContext, ctx.state:', ctx.state);
+
+            // Log audio levels for 15 s — if all zeros the server is sending silence
+            var _buf = new Uint8Array(window.__lynqAnalyser.frequencyBinCount);
+            var _ticks = 0;
+            var _lvlTimer = setInterval(function() {
+              window.__lynqAnalyser.getByteFrequencyData(_buf);
+              var sum = 0; for (var i = 0; i < _buf.length; i++) sum += _buf[i];
+              console.log('[Lynq] audio level tick', _ticks, '→', sum, sum > 0 ? '✓ AUDIO FLOWING' : '(silence)');
+              if (++_ticks >= 15) clearInterval(_lvlTimer);
+            }, 1000);
           }
 
           connect(track);
@@ -2657,6 +2670,15 @@
 
       // ── ICE state watcher ─────────────────────────────────────────────────
       function lynqWatchPC(pc) {
+        // Log all data channels and their messages for diagnostics
+        pc.addEventListener('datachannel', function(e) {
+          var dc = e.channel;
+          console.log('[Lynq] datachannel received:', dc.label, 'state:', dc.readyState);
+          dc.addEventListener('open',    function()  { console.log('[Lynq] dc open:', dc.label); });
+          dc.addEventListener('message', function(m) { console.log('[Lynq] dc msg:', dc.label, m.data); });
+          dc.addEventListener('close',   function()  { console.log('[Lynq] dc close:', dc.label); });
+        });
+
         pc.addEventListener('iceconnectionstatechange', function() {
           var s = pc.iceConnectionState;
           console.log('ICE:', s);
