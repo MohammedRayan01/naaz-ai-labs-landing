@@ -800,9 +800,11 @@
       align-items: center;
       justify-content: space-between;
       padding: 28px 24px 20px;
-      background: rgba(8,8,12,0.72);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
+      background: rgba(6,6,10,0.78);
+    }
+    /* Only blur the live appointment panel — others don't need it */
+    #appt-trigger-panel {
+      background: transparent;
     }
 
     /* top row */
@@ -1701,6 +1703,8 @@
 
       <!-- Appointment Booking panel — live Dograh voice widget trigger -->
       <div class="demo-panel" id="panel-appointment">
+        <!-- Audio-reactive background canvas (sits behind voice-ui) -->
+        <canvas id="appt-bg-canvas" style="position:absolute;inset:0;width:100%;height:100%;display:block;"></canvas>
         <div class="voice-ui" id="appt-trigger-panel">
           <div class="voice-header">
             <div class="voice-live-badge">
@@ -2588,6 +2592,82 @@
   </script>
 
   <script>
+    // ── Appointment panel background canvas ───────────────────────────────────
+    (function() {
+      var cv  = document.getElementById('appt-bg-canvas');
+      if (!cv) return;
+      var c   = cv.getContext('2d');
+      var _an = null;  // AnalyserNode — null = idle mode
+      var _td = null;  // time-domain buffer
+
+      function resize() {
+        var p = cv.parentElement.getBoundingClientRect();
+        cv.width  = p.width  || 640;
+        cv.height = p.height || 360;
+      }
+      resize();
+      new ResizeObserver(resize).observe(cv.parentElement);
+
+      function drawIdle(t) {
+        var W = cv.width, H = cv.height;
+        c.clearRect(0, 0, W, H);
+        // 3 slow overlapping sine waves — very faint indigo tones
+        var waves = [
+          { amp: H * 0.07, cyc: 2.2, spd: 0.00035, col: 'rgba(99,102,241,0.15)'  },
+          { amp: H * 0.05, cyc: 3.5, spd: 0.00055, col: 'rgba(139,92,246,0.10)'  },
+          { amp: H * 0.04, cyc: 1.6, spd: 0.00025, col: 'rgba(167,139,250,0.07)' },
+        ];
+        waves.forEach(function(w) {
+          c.beginPath();
+          c.strokeStyle = w.col;
+          c.lineWidth   = 1.5;
+          for (var x = 0; x <= W; x += 3) {
+            var y = H / 2 + Math.sin(x / W * Math.PI * w.cyc + t * w.spd) * w.amp;
+            x === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
+          }
+          c.stroke();
+        });
+      }
+
+      function drawActive() {
+        var W = cv.width, H = cv.height;
+        c.clearRect(0, 0, W, H);
+        _an.getByteTimeDomainData(_td);
+
+        var sw = W / (_td.length - 1);
+        c.beginPath();
+        for (var i = 0; i < _td.length; i++) {
+          var v = (_td[i] - 128) / 128;
+          var y = H / 2 + v * H * 0.34;
+          i === 0 ? c.moveTo(i * sw, y) : c.lineTo(i * sw, y);
+        }
+        // glowing stroke
+        c.save();
+        c.shadowBlur  = 18;
+        c.shadowColor = 'rgba(139,92,246,0.75)';
+        c.strokeStyle = 'rgba(190,160,255,0.8)';
+        c.lineWidth   = 1.8;
+        c.stroke();
+        c.restore();
+        // subtle fill
+        c.lineTo(W, H / 2); c.lineTo(0, H / 2); c.closePath();
+        c.fillStyle = 'rgba(99,102,241,0.07)';
+        c.fill();
+      }
+
+      var _raf;
+      (function loop(t) {
+        _raf = requestAnimationFrame(loop);
+        if (_an && _td) drawActive(); else drawIdle(t);
+      })(0);
+
+      // Called by lynqConnectStream / disconnect
+      window.__apptBgSetAnalyser = function(analyserNode) {
+        _an = analyserNode;
+        _td = analyserNode ? new Uint8Array(analyserNode.fftSize) : null;
+      };
+    })();
+
     // ── Lynq voice widget integration ────────────────────────────────────────
     (function() {
       var btn    = document.getElementById('dograh-launch-btn');
@@ -2693,6 +2773,9 @@
         window.__lynqAnalyser = analyser;
         console.log('[Lynq] stream connected, ctx.state:', ctx.state, 'latency:', ctx.baseLatency);
 
+        // Feed the same analyser into the background canvas
+        if (window.__apptBgSetAnalyser) window.__apptBgSetAnalyser(analyser);
+
         startWaveformSync(analyser);
       }
 
@@ -2716,6 +2799,7 @@
           }
           if (s === 'disconnected' || s === 'closed' || s === 'failed') {
             if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(x){} window.__lynqSource = null; }
+            if (window.__apptBgSetAnalyser) window.__apptBgSetAnalyser(null);
             stopWaveformSync();
             var wv = document.getElementById('appt-waveform');
             if (wv) wv.style.opacity = '0.3';
