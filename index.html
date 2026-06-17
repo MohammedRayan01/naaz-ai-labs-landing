@@ -609,23 +609,21 @@
     .demo-ring {
       position: absolute;
       border-radius: 50%;
-      top: 50%;
-      left: 50%;
+      top: 50%; left: 50%;
       pointer-events: none;
       z-index: 0;
       border: 1px solid rgba(255,87,34,0.5);
+      will-change: transform, opacity, scale;
+      /* CSS handles spin only; JS drives opacity + scale independently */
+      animation: dRingRotate linear infinite;
     }
-    .demo-ring-1 { width: 280px;  height: 280px;  animation: dRingRotate 5s  linear infinite,         dRingPulse 2s ease-in-out infinite; }
-    .demo-ring-2 { width: 560px;  height: 560px;  animation: dRingRotate 9s  linear infinite reverse,  dRingPulse 2s ease-in-out 0.66s infinite; border-color: rgba(255,87,34,0.3); }
-    .demo-ring-3 { width: 960px;  height: 960px;  animation: dRingRotate 14s linear infinite,          dRingPulse 2s ease-in-out 1.33s infinite; border-color: rgba(255,87,34,0.15); border-width: 0.5px; }
+    .demo-ring-1 { width: 280px; height: 280px; animation-duration: 7s; }
+    .demo-ring-2 { width: 560px; height: 560px; animation-duration: 12s; animation-direction: reverse; border-color: rgba(255,87,34,0.3); }
+    .demo-ring-3 { width: 960px; height: 960px; animation-duration: 18s; border-color: rgba(255,87,34,0.12); border-width: 0.5px; }
 
     @keyframes dRingRotate {
-      from { transform: translate(-50%, -50%) rotate(0deg);   }
-      to   { transform: translate(-50%, -50%) rotate(360deg); }
-    }
-    @keyframes dRingPulse {
-      0%, 100% { opacity: 0.15; }
-      50%       { opacity: 0.65; }
+      from { transform: translate(-50%,-50%) rotate(0deg);   }
+      to   { transform: translate(-50%,-50%) rotate(360deg); }
     }
 
     .demo-header {
@@ -2668,6 +2666,57 @@
       };
     })();
 
+    // ── Demo rings — idle breathe + audio-reactive pulse ─────────────────────
+    (function() {
+      var rings = Array.from(document.querySelectorAll('.demo-ring'));
+      if (!rings.length) return;
+
+      // Base opacities per ring (inner→outer)
+      var BASE_OP = [0.45, 0.25, 0.10];
+      var _an     = null;  // AnalyserNode when call is live
+      var _fb     = null;  // frequency buffer
+
+      // Smooth RMS per ring (separate so inner reacts fastest)
+      var smooth  = [0, 0, 0];
+      var ATTACK  = [0.40, 0.28, 0.18];
+      var RELEASE = [0.88, 0.92, 0.96];
+
+      (function loop(t) {
+        requestAnimationFrame(loop);
+        var rms = 0;
+        if (_an && _fb) {
+          _an.getByteFrequencyData(_fb);
+          var sum = 0;
+          for (var i = 0; i < _fb.length; i++) sum += _fb[i];
+          rms = (sum / _fb.length) / 255; // 0→1
+        }
+
+        for (var r = 0; r < rings.length; r++) {
+          if (_an) {
+            // Audio-reactive: fast attack, slow release
+            smooth[r] = rms > smooth[r]
+              ? smooth[r] * (1 - ATTACK[r])  + rms * ATTACK[r]
+              : smooth[r] * RELEASE[r]        + rms * (1 - RELEASE[r]);
+          } else {
+            // Idle: gentle sine breathe, offset per ring
+            var phase = t * 0.00055 + r * 2.1;
+            smooth[r] = 0.25 + 0.2 * Math.sin(phase);
+          }
+
+          var op    = BASE_OP[r] * (0.4 + smooth[r] * 0.6);
+          var sc    = 1 + smooth[r] * (r === 0 ? 0.08 : r === 1 ? 0.05 : 0.03);
+          rings[r].style.opacity = op.toFixed(3);
+          rings[r].style.scale   = sc.toFixed(4);
+        }
+      })(0);
+
+      window.__demoRingSetAnalyser = function(a) {
+        _an = a;
+        _fb = a ? new Uint8Array(a.frequencyBinCount) : null;
+        if (!a) smooth = [0, 0, 0]; // reset on disconnect
+      };
+    })();
+
     // ── Lynq voice widget integration ────────────────────────────────────────
     (function() {
       var btn    = document.getElementById('dograh-launch-btn');
@@ -2773,8 +2822,9 @@
         window.__lynqAnalyser = analyser;
         console.log('[Lynq] stream connected, ctx.state:', ctx.state, 'latency:', ctx.baseLatency);
 
-        // Feed the same analyser into the background canvas
-        if (window.__apptBgSetAnalyser) window.__apptBgSetAnalyser(analyser);
+        // Feed the same analyser into the background canvas + demo rings
+        if (window.__apptBgSetAnalyser)    window.__apptBgSetAnalyser(analyser);
+        if (window.__demoRingSetAnalyser)  window.__demoRingSetAnalyser(analyser);
 
         startWaveformSync(analyser);
       }
@@ -2799,7 +2849,8 @@
           }
           if (s === 'disconnected' || s === 'closed' || s === 'failed') {
             if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(x){} window.__lynqSource = null; }
-            if (window.__apptBgSetAnalyser) window.__apptBgSetAnalyser(null);
+            if (window.__apptBgSetAnalyser)   window.__apptBgSetAnalyser(null);
+            if (window.__demoRingSetAnalyser) window.__demoRingSetAnalyser(null);
             stopWaveformSync();
             var wv = document.getElementById('appt-waveform');
             if (wv) wv.style.opacity = '0.3';
