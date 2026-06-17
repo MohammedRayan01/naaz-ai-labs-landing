@@ -906,23 +906,26 @@
       width: 3px;
       border-radius: 99px;
       background: rgba(255,255,255,0.7);
-      animation: voiceBarBounce 1.1s ease-in-out infinite;
+      will-change: transform;
+      transform-origin: center;
+      animation: voiceBarBounce 1.4s ease-in-out infinite;
     }
-    .voice-bar:nth-child(odd)  { background: rgba(255,255,255,0.45); }
-    .voice-bar:nth-child(1)  { animation-delay: 0s;    height: 14px; }
-    .voice-bar:nth-child(2)  { animation-delay: 0.09s; height: 22px; }
-    .voice-bar:nth-child(3)  { animation-delay: 0.18s; height: 30px; }
-    .voice-bar:nth-child(4)  { animation-delay: 0.27s; height: 36px; }
-    .voice-bar:nth-child(5)  { animation-delay: 0.36s; height: 26px; }
-    .voice-bar:nth-child(6)  { animation-delay: 0.45s; height: 18px; }
-    .voice-bar:nth-child(7)  { animation-delay: 0.54s; height: 28px; }
-    .voice-bar:nth-child(8)  { animation-delay: 0.63s; height: 20px; }
-    .voice-bar:nth-child(9)  { animation-delay: 0.72s; height: 32px; }
-    .voice-bar:nth-child(10) { animation-delay: 0.81s; height: 22px; }
-    .voice-bar:nth-child(11) { animation-delay: 0.90s; height: 14px; }
+    .voice-bar:nth-child(odd)  { background: rgba(255,255,255,0.4); }
+    .voice-bar:nth-child(1)  { animation-delay: 0s;     height: 14px; }
+    .voice-bar:nth-child(2)  { animation-delay: 0.13s;  height: 22px; }
+    .voice-bar:nth-child(3)  { animation-delay: 0.26s;  height: 30px; }
+    .voice-bar:nth-child(4)  { animation-delay: 0.39s;  height: 36px; }
+    .voice-bar:nth-child(5)  { animation-delay: 0.52s;  height: 26px; }
+    .voice-bar:nth-child(6)  { animation-delay: 0.65s;  height: 18px; }
+    .voice-bar:nth-child(7)  { animation-delay: 0.78s;  height: 28px; }
+    .voice-bar:nth-child(8)  { animation-delay: 0.91s;  height: 20px; }
+    .voice-bar:nth-child(9)  { animation-delay: 1.04s;  height: 32px; }
+    .voice-bar:nth-child(10) { animation-delay: 1.17s;  height: 22px; }
+    .voice-bar:nth-child(11) { animation-delay: 1.30s;  height: 14px; }
     @keyframes voiceBarBounce {
-      0%,100% { transform: scaleY(0.35); opacity: 0.5; }
-      50%      { transform: scaleY(1);    opacity: 1; }
+      0%,100% { transform: scaleY(0.2); opacity: 0.35; }
+      45%     { transform: scaleY(0.9); opacity: 0.9;  }
+      55%     { transform: scaleY(1);   opacity: 1;    }
     }
 
     /* transcript */
@@ -2590,12 +2593,61 @@
       var btn    = document.getElementById('dograh-launch-btn');
       var label  = document.getElementById('dograh-btn-label');
       var status = document.getElementById('dograh-status');
-      var _ctx   = null; // AudioContext — created on click, stays running forever
+      var _ctx   = null;
 
       function setStatus(msg, color) {
-        status.textContent  = msg;
-        status.style.color  = color || 'rgba(255,255,255,0.55)';
+        status.textContent   = msg;
+        status.style.color   = color || 'rgba(255,255,255,0.55)';
         status.style.opacity = '1';
+      }
+
+      // ── Waveform sync ─────────────────────────────────────────────────────
+      var _wvRaf    = null;
+      var _wvSmooth = null;
+
+      function startWaveformSync(analyser) {
+        var bars = document.querySelectorAll('#appt-waveform .voice-bar');
+        if (!bars.length) return;
+        stopWaveformSync(); // cancel any running loop first
+
+        _wvSmooth = new Float32Array(bars.length).fill(0.15);
+        var buf = new Uint8Array(analyser.frequencyBinCount);
+
+        // Kill CSS animation — JS takes over
+        for (var i = 0; i < bars.length; i++) bars[i].style.animation = 'none';
+
+        // Voice sits in roughly bins 2–30 at fftSize=256 / 48kHz (93 Hz/bin)
+        var LO = 2, HI = 30, RANGE = HI - LO, N = bars.length;
+
+        function tick() {
+          _wvRaf = requestAnimationFrame(tick);
+          analyser.getByteFrequencyData(buf);
+          for (var i = 0; i < N; i++) {
+            var lo  = LO + Math.floor(i * RANGE / N);
+            var hi  = LO + Math.floor((i + 1) * RANGE / N) + 1;
+            var sum = 0;
+            for (var j = lo; j < hi; j++) sum += buf[j];
+            var val = sum / ((hi - lo) * 255);
+            // Smooth: fast attack (0.35) slow release (0.82) — natural voice envelope
+            _wvSmooth[i] = val > _wvSmooth[i]
+              ? _wvSmooth[i] * 0.65 + val * 0.35
+              : _wvSmooth[i] * 0.82 + val * 0.18;
+            bars[i].style.transform = 'scaleY(' + Math.max(0.1, _wvSmooth[i]).toFixed(3) + ')';
+            bars[i].style.opacity   = (0.3 + _wvSmooth[i] * 0.7).toFixed(3);
+          }
+        }
+        tick();
+      }
+
+      function stopWaveformSync() {
+        if (_wvRaf) { cancelAnimationFrame(_wvRaf); _wvRaf = null; }
+        var bars = document.querySelectorAll('#appt-waveform .voice-bar');
+        for (var i = 0; i < bars.length; i++) {
+          bars[i].style.animation = '';
+          bars[i].style.transform = '';
+          bars[i].style.opacity   = '';
+        }
+        _wvSmooth = null;
       }
 
       // ── Button click ──────────────────────────────────────────────────────
@@ -2604,16 +2656,15 @@
           setStatus('⚠ Voice service offline — try again shortly', '#f87171');
           return;
         }
-
-        // Create AudioContext SYNCHRONOUSLY inside the user gesture.
-        // A context created this way is always in 'running' state — no autoplay
-        // policy ever applies when we later connect sources to it.
+        // AudioContext created synchronously inside user gesture = always running,
+        // never subject to autoplay policy. latencyHint:'interactive' = small buffer,
+        // less choppiness vs default 'balanced'.
         if (!_ctx) {
-          try { _ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+          try { _ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' }); }
           catch(e) { console.warn('AudioContext unavailable:', e); }
         }
         if (_ctx && _ctx.state === 'suspended') _ctx.resume();
-        window.__lynqCtx = _ctx; // expose for lynqAttachAudio
+        window.__lynqCtx = _ctx;
 
         label.textContent = 'Connecting…';
         btn.style.opacity = '0.7';
@@ -2622,73 +2673,42 @@
         window.LynqWidget.start();
       });
 
-      // ── Core audio connect — streams from track event are most reliable ─────
+      // ── Stream connect (AudioContext only — no HTMLAudioElement) ──────────
+      // Running both simultaneously causes two jitter buffers which makes audio choppy.
       function lynqConnectStream(stream) {
         var ctx = window.__lynqCtx;
-        if (!ctx) { console.warn('[Lynq] no AudioContext yet'); return; }
+        if (!ctx) { console.warn('[Lynq] no AudioContext'); return; }
 
-        // Disconnect previous
         if (window.__lynqSource)   { try { window.__lynqSource.disconnect();   } catch(x){} }
         if (window.__lynqAnalyser) { try { window.__lynqAnalyser.disconnect(); } catch(x){} }
 
-        // AudioContext path — always works, not subject to autoplay policy
-        window.__lynqSource   = ctx.createMediaStreamSource(stream);
-        window.__lynqAnalyser = ctx.createAnalyser();
-        window.__lynqAnalyser.fftSize = 256;
-        window.__lynqSource.connect(window.__lynqAnalyser);
-        window.__lynqAnalyser.connect(ctx.destination);
-        console.log('[Lynq] AudioContext stream connected, ctx.state:', ctx.state, 'tracks:', stream.getAudioTracks().length);
+        var analyser = ctx.createAnalyser();
+        analyser.fftSize        = 256;
+        analyser.smoothingTimeConstant = 0; // we do our own smoothing per-bar
+        var src = ctx.createMediaStreamSource(stream);
+        src.connect(analyser);
+        analyser.connect(ctx.destination);
 
-        // HTMLAudioElement fallback in parallel (some browsers need this)
-        var ael = document.getElementById('lynq-audio-el') || document.createElement('audio');
-        ael.id        = 'lynq-audio-el';
-        ael.autoplay  = true;
-        ael.srcObject = stream;
-        if (!ael.parentNode) document.body.appendChild(ael);
-        ael.play().then(function() {
-          console.log('[Lynq] HTMLAudioElement playing');
-        }).catch(function(err) {
-          console.warn('[Lynq] HTMLAudioElement play blocked:', err.name);
-        });
+        window.__lynqSource   = src;
+        window.__lynqAnalyser = analyser;
+        console.log('[Lynq] stream connected, ctx.state:', ctx.state, 'latency:', ctx.baseLatency);
 
-        // Level meter — 0 every tick = server sending silence
-        var _buf  = new Uint8Array(window.__lynqAnalyser.frequencyBinCount);
-        var _tick = 0;
-        var _t    = setInterval(function() {
-          window.__lynqAnalyser.getByteFrequencyData(_buf);
-          var sum = 0; for (var i = 0; i < _buf.length; i++) sum += _buf[i];
-          console.log('[Lynq] level tick', _tick, '→', sum, sum > 0 ? '✓ AUDIO FLOWING' : '(silence — server may not be speaking yet)');
-          if (++_tick >= 20) clearInterval(_t);
-        }, 1000);
+        startWaveformSync(analyser);
       }
 
-      // ── ICE + track watcher ───────────────────────────────────────────────
+      // ── PC watcher ────────────────────────────────────────────────────────
       function lynqWatchPC(pc) {
-        // track event: fires when remote sends a MediaStreamTrack
-        // e.streams[0] is the actual MediaStream from the remote peer — most reliable
         pc.addEventListener('track', function(e) {
           if (e.track.kind !== 'audio') return;
-          console.log('[Lynq] track event, kind:', e.track.kind, 'muted:', e.track.muted, 'streams:', e.streams.length);
-          var stream = (e.streams && e.streams.length > 0) ? e.streams[0] : new MediaStream([e.track]);
+          var stream = (e.streams && e.streams.length) ? e.streams[0] : new MediaStream([e.track]);
           lynqConnectStream(stream);
-          e.track.onunmute = function() {
-            console.log('[Lynq] track unmuted — reconnecting');
-            lynqConnectStream(stream);
-          };
+          e.track.onunmute = function() { lynqConnectStream(stream); };
           var wv = document.getElementById('appt-waveform');
           if (wv) wv.style.opacity = '1';
         });
 
-        // Data channel spy
-        pc.addEventListener('datachannel', function(e) {
-          var dc = e.channel;
-          console.log('[Lynq] datachannel:', dc.label, dc.readyState);
-          dc.addEventListener('message', function(m) { console.log('[Lynq] dc msg:', dc.label, m.data); });
-        });
-
         pc.addEventListener('iceconnectionstatechange', function() {
           var s = pc.iceConnectionState;
-          console.log('[Lynq] ICE:', s);
           if (s === 'connected' || s === 'completed') {
             if (label)  label.textContent = 'End Call';
             if (btn)    { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = 'rgba(239,68,68,0.25)'; btn.style.borderColor = 'rgba(239,68,68,0.6)'; }
@@ -2696,8 +2716,7 @@
           }
           if (s === 'disconnected' || s === 'closed' || s === 'failed') {
             if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(x){} window.__lynqSource = null; }
-            var ael = document.getElementById('lynq-audio-el');
-            if (ael) { ael.srcObject = null; }
+            stopWaveformSync();
             var wv = document.getElementById('appt-waveform');
             if (wv) wv.style.opacity = '0.3';
             if (label)  label.textContent = 'Book an Appointment';
