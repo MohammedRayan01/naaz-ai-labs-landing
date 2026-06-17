@@ -1744,8 +1744,9 @@
             display: flex; align-items: center; gap: 10px;
           ">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm6.5 9a.75.75 0 0 1 .75.75 7.25 7.25 0 0 1-6.5 7.21V20h2.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5h2.5v-2.04a7.25 7.25 0 0 1-6.5-7.21.75.75 0 0 1 1.5 0 5.75 5.75 0 0 0 11.5 0 .75.75 0 0 1 .75-.75z"/></svg>
-            Book an Appointment
+            <span id="dograh-btn-label">Book an Appointment</span>
           </button>
+          <p id="dograh-status" style="margin:10px 0 0; font-size:11px; letter-spacing:1px; opacity:0; transition:opacity 0.3s; text-align:center;"></p>
         </div>
       </div>
     </div>
@@ -2585,24 +2586,44 @@
 
   <script>
     // Wire the appointment booking button to the Lynq widget
-    document.getElementById('dograh-launch-btn').addEventListener('click', function() {
-      // ── Step 1: Create + play audio element RIGHT NOW inside user gesture ──
-      // audio.play() MUST be called synchronously during the click or Chrome blocks it
-      var audio = document.getElementById('lynq-audio-out') || document.createElement('audio');
-      audio.id       = 'lynq-audio-out';
-      audio.autoplay = true;
-      if (!audio.parentNode) document.body.appendChild(audio);
-      audio.play().catch(function(e) {
-        // If blocked, try muted first then unmute — last resort
-        audio.muted = true;
-        audio.play().then(function() { audio.muted = false; }).catch(function(){});
-      });
+    (function() {
+      var btn    = document.getElementById('dograh-launch-btn');
+      var label  = document.getElementById('dograh-btn-label');
+      var status = document.getElementById('dograh-status');
 
-      // ── Step 2: Start the call ──
-      if (window.LynqWidget && typeof window.LynqWidget.start === 'function') {
-        window.LynqWidget.start();
+      function setStatus(msg, color) {
+        status.textContent = msg;
+        status.style.color  = color || 'rgba(255,255,255,0.55)';
+        status.style.opacity = '1';
       }
-    });
+
+      btn.addEventListener('click', function() {
+        // ── Check widget loaded ──
+        if (!window.LynqWidget || typeof window.LynqWidget.start !== 'function') {
+          setStatus('⚠ Voice service offline — try again shortly', '#f87171');
+          return;
+        }
+
+        // ── Step 1: Create + play audio element RIGHT NOW inside user gesture ──
+        // audio.play() MUST be called synchronously during the click or Chrome blocks it
+        var audio = document.getElementById('lynq-audio-out') || document.createElement('audio');
+        audio.id       = 'lynq-audio-out';
+        audio.autoplay = true;
+        if (!audio.parentNode) document.body.appendChild(audio);
+        audio.play().catch(function(e) {
+          audio.muted = true;
+          audio.play().then(function() { audio.muted = false; }).catch(function(){});
+        });
+
+        // ── Step 2: Start the call ──
+        label.textContent = 'Connecting…';
+        btn.style.opacity = '0.7';
+        btn.disabled      = true;
+        setStatus('Dialing Sam · Booking Agent…', 'rgba(255,255,255,0.55)');
+
+        window.LynqWidget.start();
+      });
+    })();
 
     function lynqAttachAudio() {
       try {
@@ -2626,15 +2647,25 @@
 
     // Watch ICE state directly — don't rely on widget callbacks
     function lynqWatchPC(pc) {
+      var btn    = document.getElementById('dograh-launch-btn');
+      var label  = document.getElementById('dograh-btn-label');
+      var status = document.getElementById('dograh-status');
+
       pc.addEventListener('iceconnectionstatechange', function() {
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
           lynqAttachAudio();
+          if (label) label.textContent = 'End Call';
+          if (btn)   { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = 'rgba(239,68,68,0.25)'; btn.style.borderColor = 'rgba(239,68,68,0.6)'; }
+          if (status){ status.textContent = '● Connected to Sam'; status.style.color = '#4ade80'; }
         }
         if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
           var wv = document.getElementById('appt-waveform');
           if (wv) wv.style.opacity = '0.3';
           var a = document.getElementById('lynq-audio-out');
           if (a) a.srcObject = null;
+          if (label) label.textContent = 'Book an Appointment';
+          if (btn)   { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = ''; btn.style.borderColor = ''; }
+          if (status){ status.textContent = 'Call ended'; status.style.color = 'rgba(255,255,255,0.4)'; }
         }
       });
       // Also try immediately in case already connected
