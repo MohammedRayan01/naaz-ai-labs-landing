@@ -2586,13 +2586,22 @@
   <script>
     // Wire the appointment booking button to the Lynq widget
     document.getElementById('dograh-launch-btn').addEventListener('click', function() {
+      // ── Step 1: Create + play audio element RIGHT NOW inside user gesture ──
+      // audio.play() MUST be called synchronously during the click or Chrome blocks it
+      var audio = document.getElementById('lynq-audio-out') || document.createElement('audio');
+      audio.id       = 'lynq-audio-out';
+      audio.autoplay = true;
+      if (!audio.parentNode) document.body.appendChild(audio);
+      audio.play().catch(function(e) {
+        // If blocked, try muted first then unmute — last resort
+        audio.muted = true;
+        audio.play().then(function() { audio.muted = false; }).catch(function(){});
+      });
+
+      // ── Step 2: Start the call ──
       if (window.LynqWidget && typeof window.LynqWidget.start === 'function') {
         window.LynqWidget.start();
-        return;
       }
-      // Fall back: find and click the widget's own trigger button in the DOM
-      var btn = document.querySelector('[id*="lynq"] button, [class*="lynq"] button');
-      if (btn) { btn.click(); }
     });
 
     function lynqAttachAudio() {
@@ -2602,21 +2611,17 @@
         if (!receiver || receiver.track.readyState !== 'live') return false;
 
         var audio = document.getElementById('lynq-audio-out');
-        if (audio && audio.srcObject) return true; // already attached
+        if (!audio) return false; // audio el must exist (created on click)
 
+        // Only set srcObject — never call play() here (outside user gesture = blocked)
         var stream = new MediaStream([receiver.track]);
-        audio = audio || document.createElement('audio');
-        audio.id        = 'lynq-audio-out';
         audio.srcObject = stream;
-        audio.autoplay  = true;
-        if (!audio.parentNode) document.body.appendChild(audio);
-        audio.play().catch(function(){});
         console.log('Lynq audio attached');
 
         var wv = document.getElementById('appt-waveform');
         if (wv) wv.style.opacity = '1';
         return true;
-      } catch(e) { return false; }
+      } catch(e) { console.warn('lynqAttachAudio error:', e); return false; }
     }
 
     // Watch ICE state directly — don't rely on widget callbacks
