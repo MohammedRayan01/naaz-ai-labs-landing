@@ -2590,146 +2590,114 @@
   </script>
 
   <script>
-    // ── Appointment panel background canvas ───────────────────────────────────
+    // ── Canvas + rings — ONE shared rAF, throttled to ~20 fps ────────────────
+    // Merging two loops into one halves the getByteFrequencyData / style-write
+    // overhead. 20fps is plenty for background decoration and ring breathing.
     (function() {
-      var cv  = document.getElementById('appt-bg-canvas');
-      if (!cv) return;
-      var c   = cv.getContext('2d');
-      var _an = null;  // AnalyserNode — null = idle mode
-      var _td = null;  // time-domain buffer
+      // ── Canvas setup ──
+      var cv = document.getElementById('appt-bg-canvas');
+      var c  = cv ? cv.getContext('2d') : null;
+      var _cvAn = null, _td = null;
 
-      function resize() {
-        var p = cv.parentElement.getBoundingClientRect();
-        cv.width  = p.width  || 640;
-        cv.height = p.height || 360;
-      }
-      resize();
-      new ResizeObserver(resize).observe(cv.parentElement);
+      var CV_W = 480, CV_H = 270; // fixed low-res; CSS stretches it (faster to draw)
+      if (cv) { cv.width = CV_W; cv.height = CV_H; }
 
       function drawIdle(t) {
-        var W = cv.width, H = cv.height;
-        c.clearRect(0, 0, W, H);
-        // 3 slow overlapping sine waves — very faint indigo tones
+        c.clearRect(0, 0, CV_W, CV_H);
         var waves = [
-          { amp: H * 0.07, cyc: 2.2, spd: 0.00035, col: 'rgba(99,102,241,0.15)'  },
-          { amp: H * 0.05, cyc: 3.5, spd: 0.00055, col: 'rgba(139,92,246,0.10)'  },
-          { amp: H * 0.04, cyc: 1.6, spd: 0.00025, col: 'rgba(167,139,250,0.07)' },
+          { amp: CV_H * 0.07, cyc: 2.2, spd: 0.00035, col: 'rgba(99,102,241,0.15)'  },
+          { amp: CV_H * 0.05, cyc: 3.5, spd: 0.00055, col: 'rgba(139,92,246,0.10)'  },
+          { amp: CV_H * 0.04, cyc: 1.6, spd: 0.00025, col: 'rgba(167,139,250,0.07)' },
         ];
-        waves.forEach(function(w) {
-          c.beginPath();
-          c.strokeStyle = w.col;
-          c.lineWidth   = 1.5;
-          for (var x = 0; x <= W; x += 3) {
-            var y = H / 2 + Math.sin(x / W * Math.PI * w.cyc + t * w.spd) * w.amp;
+        for (var wi = 0; wi < waves.length; wi++) {
+          var w = waves[wi];
+          c.beginPath(); c.strokeStyle = w.col; c.lineWidth = 1;
+          for (var x = 0; x <= CV_W; x += 4) {
+            var y = CV_H / 2 + Math.sin(x / CV_W * Math.PI * w.cyc + t * w.spd) * w.amp;
             x === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
           }
           c.stroke();
-        });
-      }
-
-      function drawActive() {
-        var W = cv.width, H = cv.height;
-        c.clearRect(0, 0, W, H);
-        _an.getByteTimeDomainData(_td);
-
-        var sw = W / (_td.length - 1);
-        c.beginPath();
-        for (var i = 0; i < _td.length; i++) {
-          var v = (_td[i] - 128) / 128;
-          var y = H / 2 + v * H * 0.34;
-          i === 0 ? c.moveTo(i * sw, y) : c.lineTo(i * sw, y);
         }
-        // Wide soft stroke (simulates glow without shadowBlur — shadowBlur causes 177ms rAF stalls)
-        c.strokeStyle = 'rgba(139,92,246,0.22)';
-        c.lineWidth   = 8;
-        c.stroke();
-        // Sharp line on top
-        c.strokeStyle = 'rgba(200,170,255,0.85)';
-        c.lineWidth   = 1.5;
-        c.stroke();
-        // Subtle fill
-        c.lineTo(W, H / 2); c.lineTo(0, H / 2); c.closePath();
-        c.fillStyle = 'rgba(99,102,241,0.06)';
-        c.fill();
       }
 
-      var _raf;
-      (function loop(t) {
-        _raf = requestAnimationFrame(loop);
-        if (_an && _td) drawActive(); else drawIdle(t);
-      })(0);
+      // Down-sample to 64 points — was 256, path draw was 4× heavier
+      var STEP = 4;
+      function drawActive() {
+        c.clearRect(0, 0, CV_W, CV_H);
+        _cvAn.getByteTimeDomainData(_td);
+        var sw = CV_W / ((_td.length / STEP) - 1);
+        c.beginPath();
+        for (var i = 0, xi = 0; i < _td.length; i += STEP, xi++) {
+          var v = (_td[i] - 128) / 128;
+          var y = CV_H / 2 + v * CV_H * 0.34;
+          xi === 0 ? c.moveTo(xi * sw, y) : c.lineTo(xi * sw, y);
+        }
+        c.strokeStyle = 'rgba(139,92,246,0.28)'; c.lineWidth = 6; c.stroke();
+        c.strokeStyle = 'rgba(200,170,255,0.9)';  c.lineWidth = 1.5; c.stroke();
+        c.lineTo(CV_W, CV_H / 2); c.lineTo(0, CV_H / 2); c.closePath();
+        c.fillStyle = 'rgba(99,102,241,0.06)'; c.fill();
+      }
 
-      // Called by lynqConnectStream / disconnect
-      window.__apptBgSetAnalyser = function(analyserNode) {
-        _an = analyserNode;
-        _td = analyserNode ? new Uint8Array(analyserNode.fftSize) : null;
+      window.__apptBgSetAnalyser = function(a) {
+        _cvAn = a;
+        _td   = a ? new Uint8Array(a.fftSize) : null;
       };
-    })();
 
-    // ── Demo rings — idle breathe + audio-reactive pulse ─────────────────────
-    (function() {
-      // Rings are created dynamically by the demo section setup script,
-      // so we query lazily on first use instead of at IIFE run time.
-      var _rings  = null;
+      // ── Ring setup ──
+      var _rings = null;
       function getRings() {
         if (!_rings || !_rings.length) _rings = Array.from(document.querySelectorAll('.demo-ring'));
         return _rings;
       }
-
-      var BASE_OP  = [0.45, 0.25, 0.10];
-      var _an      = null;
-      var _fb      = null;
-      var _speaking = false; // set by data channel rtf-bot-started/stopped-speaking
-
+      var BASE_OP = [0.45, 0.25, 0.10];
+      var _rgAn   = null, _fb = null, _speaking = false;
       var smooth  = [0, 0, 0];
       var ATTACK  = [0.45, 0.30, 0.18];
       var RELEASE = [0.86, 0.91, 0.95];
 
-      (function loop(t) {
-        requestAnimationFrame(loop);
-        var rings = getRings();
-        if (!rings.length) return;
-
-        var rms = 0;
-        if (_an && _fb) {
-          _an.getByteFrequencyData(_fb);
-          var sum = 0;
-          for (var i = 0; i < _fb.length; i++) sum += _fb[i];
-          rms = (sum / _fb.length) / 255;
-          // Boost when server says bot is speaking — ensures rings pulse even if
-          // analyser RMS is low due to codec or volume issues
-          if (_speaking) rms = Math.max(rms, 0.35);
-        }
-
-        for (var r = 0; r < rings.length; r++) {
-          if (_an) {
-            smooth[r] = rms > smooth[r]
-              ? smooth[r] * (1 - ATTACK[r])  + rms * ATTACK[r]
-              : smooth[r] * RELEASE[r]        + rms * (1 - RELEASE[r]);
-          } else {
-            smooth[r] = 0.25 + 0.2 * Math.sin(t * 0.00055 + r * 2.1);
-          }
-          var op = BASE_OP[r] * (0.4 + smooth[r] * 0.6);
-          // brightness via filter — doesn't conflict with CSS transform animation
-          var br = 1 + smooth[r] * (r === 0 ? 1.8 : r === 1 ? 1.2 : 0.7);
-          rings[r].style.opacity = op.toFixed(3);
-          rings[r].style.filter  = 'brightness(' + br.toFixed(2) + ')';
-        }
-      })(0);
-
       window.__demoRingSetAnalyser = function(a) {
-        _an      = a;
-        _fb      = a ? new Uint8Array(a.frequencyBinCount) : null;
+        _rgAn = a; _fb = a ? new Uint8Array(a.frequencyBinCount) : null;
         _speaking = false;
-        if (!a) {
-          smooth = [0, 0, 0];
-          var rings = getRings();
-          rings.forEach(function(ring) { ring.style.filter = ''; });
-        }
+        if (!a) { smooth = [0,0,0]; getRings().forEach(function(r){ r.style.filter=''; }); }
       };
-
-      // Called by data channel watcher
       window.__demoRingSpeaking = function(on) { _speaking = on; };
+
+      // ── Single shared loop at ~20 fps ──
+      var _last = 0;
+      var INTERVAL = 50; // ms → 20 fps
+      requestAnimationFrame(function loop(t) {
+        requestAnimationFrame(loop);
+        if (t - _last < INTERVAL) return; // skip frames
+        _last = t;
+
+        // Canvas
+        if (c) {
+          if (_cvAn && _td) drawActive(); else drawIdle(t);
+        }
+
+        // Rings
+        var rings = getRings();
+        if (rings.length) {
+          var rms = 0;
+          if (_rgAn && _fb) {
+            _rgAn.getByteFrequencyData(_fb);
+            var sum = 0; for (var i = 0; i < _fb.length; i++) sum += _fb[i];
+            rms = (sum / _fb.length) / 255;
+            if (_speaking) rms = Math.max(rms, 0.35);
+          }
+          for (var r = 0; r < rings.length; r++) {
+            if (_rgAn) {
+              smooth[r] = rms > smooth[r]
+                ? smooth[r] * (1 - ATTACK[r])  + rms * ATTACK[r]
+                : smooth[r] * RELEASE[r]        + rms * (1 - RELEASE[r]);
+            } else {
+              smooth[r] = 0.25 + 0.2 * Math.sin(t * 0.00055 + r * 2.1);
+            }
+            rings[r].style.opacity = (BASE_OP[r] * (0.4 + smooth[r] * 0.6)).toFixed(3);
+            rings[r].style.filter  = 'brightness(' + (1 + smooth[r] * (r===0?1.8:r===1?1.2:0.7)).toFixed(2) + ')';
+          }
+        }
+      });
     })();
 
     // ── Lynq voice widget integration ────────────────────────────────────────
@@ -2763,8 +2731,11 @@
         // Voice sits in roughly bins 2–30 at fftSize=256 / 48kHz (93 Hz/bin)
         var LO = 2, HI = 30, RANGE = HI - LO, N = bars.length;
 
-        function tick() {
+        var _wvLast = 0;
+        function tick(t) {
           _wvRaf = requestAnimationFrame(tick);
+          if (t - _wvLast < 33) return; // ~30 fps
+          _wvLast = t;
           analyser.getByteFrequencyData(buf);
           for (var i = 0; i < N; i++) {
             var lo  = LO + Math.floor(i * RANGE / N);
@@ -2804,7 +2775,7 @@
         // never subject to autoplay policy. latencyHint:'interactive' = small buffer,
         // less choppiness vs default 'balanced'.
         if (!_ctx) {
-          try { _ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' }); }
+          try { _ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive', sampleRate: 48000 }); }
           catch(e) { console.warn('AudioContext unavailable:', e); }
         }
         if (_ctx && _ctx.state === 'suspended') _ctx.resume();
