@@ -2595,39 +2595,68 @@
       if (btn) { btn.click(); }
     });
 
-    // Poll until widget is ready, then wire callbacks
-    (function waitForWidget(attempts) {
-      if (window.LynqWidget) {
-        window.LynqWidget.onCallConnected(function() {
-          // Fix: widget doesn't attach incoming audio — do it manually
-          try {
-            var state    = window.LynqWidget.getState();
-            var receiver = state.pc.getReceivers().find(function(r) { return r.track.kind === 'audio'; });
-            if (receiver) {
-              var stream = new MediaStream([receiver.track]);
-              var audio  = document.getElementById('lynq-audio-out') || document.createElement('audio');
-              audio.id        = 'lynq-audio-out';
-              audio.srcObject = stream;
-              audio.autoplay  = true;
-              if (!audio.parentNode) document.body.appendChild(audio);
-              audio.play().catch(function(){});
-            }
-          } catch(e) { console.warn('Lynq audio patch failed:', e); }
+    function lynqAttachAudio() {
+      try {
+        var state    = window.LynqWidget.getState();
+        var receiver = state.pc && state.pc.getReceivers().find(function(r) { return r.track.kind === 'audio'; });
+        if (!receiver || receiver.track.readyState !== 'live') return false;
 
-          // Light up waveform
-          var wv = document.getElementById('appt-waveform');
-          if (wv) wv.style.opacity = '1';
-        });
+        var audio = document.getElementById('lynq-audio-out');
+        if (audio && audio.srcObject) return true; // already attached
 
-        window.LynqWidget.onCallEnd(function() {
+        var stream = new MediaStream([receiver.track]);
+        audio = audio || document.createElement('audio');
+        audio.id        = 'lynq-audio-out';
+        audio.srcObject = stream;
+        audio.autoplay  = true;
+        if (!audio.parentNode) document.body.appendChild(audio);
+        audio.play().catch(function(){});
+        console.log('Lynq audio attached');
+
+        var wv = document.getElementById('appt-waveform');
+        if (wv) wv.style.opacity = '1';
+        return true;
+      } catch(e) { return false; }
+    }
+
+    // Watch ICE state directly — don't rely on widget callbacks
+    function lynqWatchPC(pc) {
+      pc.addEventListener('iceconnectionstatechange', function() {
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          lynqAttachAudio();
+        }
+        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
           var wv = document.getElementById('appt-waveform');
           if (wv) wv.style.opacity = '0.3';
-          var audio = document.getElementById('lynq-audio-out');
-          if (audio) { audio.srcObject = null; }
-        });
+          var a = document.getElementById('lynq-audio-out');
+          if (a) a.srcObject = null;
+        }
+      });
+      // Also try immediately in case already connected
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        lynqAttachAudio();
+      }
+    }
 
+    // Poll until widget exposes pc, then attach watcher
+    (function waitForPC(attempts) {
+      if (window.LynqWidget) {
+        var state = window.LynqWidget.getState();
+        if (state.pc) {
+          lynqWatchPC(state.pc);
+        } else {
+          // pc not created yet — watch for it after button click
+          document.getElementById('dograh-launch-btn').addEventListener('click', function() {
+            var tries = 0;
+            var poll = setInterval(function() {
+              var s = window.LynqWidget.getState();
+              if (s.pc) { lynqWatchPC(s.pc); clearInterval(poll); }
+              if (++tries > 40) clearInterval(poll);
+            }, 250);
+          }, { once: true });
+        }
       } else if (attempts > 0) {
-        setTimeout(function() { waitForWidget(attempts - 1); }, 200);
+        setTimeout(function() { waitForPC(attempts - 1); }, 200);
       }
     })(25);
   </script>
