@@ -2622,74 +2622,82 @@
         window.LynqWidget.start();
       });
 
-      // ── Audio attachment — called once ICE reaches connected/completed ─────
-      window.lynqAttachAudio = function() {
-        try {
-          var state    = window.LynqWidget.getState();
-          var receiver = state.pc && state.pc.getReceivers().find(function(r) { return r.track.kind === 'audio'; });
-          if (!receiver) { console.warn('lynqAttachAudio: no receiver'); return false; }
+      // ── Core audio connect — streams from track event are most reliable ─────
+      function lynqConnectStream(stream) {
+        var ctx = window.__lynqCtx;
+        if (!ctx) { console.warn('[Lynq] no AudioContext yet'); return; }
 
-          var track = receiver.track;
-          console.log('lynqAttachAudio track:', track.readyState, 'muted:', track.muted, 'enabled:', track.enabled);
+        // Disconnect previous
+        if (window.__lynqSource)   { try { window.__lynqSource.disconnect();   } catch(x){} }
+        if (window.__lynqAnalyser) { try { window.__lynqAnalyser.disconnect(); } catch(x){} }
 
-          function connect(t) {
-            var ctx = window.__lynqCtx;
-            if (!ctx) { console.warn('lynqAttachAudio: no AudioContext'); return; }
-            if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(e){} }
-            if (window.__lynqAnalyser) { try { window.__lynqAnalyser.disconnect(); } catch(e){} }
-            var stream = new MediaStream([t]);
-            window.__lynqSource   = ctx.createMediaStreamSource(stream);
-            window.__lynqAnalyser = ctx.createAnalyser();
-            window.__lynqAnalyser.fftSize = 256;
-            window.__lynqSource.connect(window.__lynqAnalyser);
-            window.__lynqAnalyser.connect(ctx.destination);
-            console.log('Lynq audio routed via AudioContext, ctx.state:', ctx.state);
+        // AudioContext path — always works, not subject to autoplay policy
+        window.__lynqSource   = ctx.createMediaStreamSource(stream);
+        window.__lynqAnalyser = ctx.createAnalyser();
+        window.__lynqAnalyser.fftSize = 256;
+        window.__lynqSource.connect(window.__lynqAnalyser);
+        window.__lynqAnalyser.connect(ctx.destination);
+        console.log('[Lynq] AudioContext stream connected, ctx.state:', ctx.state, 'tracks:', stream.getAudioTracks().length);
 
-            // Log audio levels for 15 s — if all zeros the server is sending silence
-            var _buf = new Uint8Array(window.__lynqAnalyser.frequencyBinCount);
-            var _ticks = 0;
-            var _lvlTimer = setInterval(function() {
-              window.__lynqAnalyser.getByteFrequencyData(_buf);
-              var sum = 0; for (var i = 0; i < _buf.length; i++) sum += _buf[i];
-              console.log('[Lynq] audio level tick', _ticks, '→', sum, sum > 0 ? '✓ AUDIO FLOWING' : '(silence)');
-              if (++_ticks >= 15) clearInterval(_lvlTimer);
-            }, 1000);
-          }
+        // HTMLAudioElement fallback in parallel (some browsers need this)
+        var ael = document.getElementById('lynq-audio-el') || document.createElement('audio');
+        ael.id        = 'lynq-audio-el';
+        ael.autoplay  = true;
+        ael.srcObject = stream;
+        if (!ael.parentNode) document.body.appendChild(ael);
+        ael.play().then(function() {
+          console.log('[Lynq] HTMLAudioElement playing');
+        }).catch(function(err) {
+          console.warn('[Lynq] HTMLAudioElement play blocked:', err.name);
+        });
 
-          connect(track);
+        // Level meter — 0 every tick = server sending silence
+        var _buf  = new Uint8Array(window.__lynqAnalyser.frequencyBinCount);
+        var _tick = 0;
+        var _t    = setInterval(function() {
+          window.__lynqAnalyser.getByteFrequencyData(_buf);
+          var sum = 0; for (var i = 0; i < _buf.length; i++) sum += _buf[i];
+          console.log('[Lynq] level tick', _tick, '→', sum, sum > 0 ? '✓ AUDIO FLOWING' : '(silence — server may not be speaking yet)');
+          if (++_tick >= 20) clearInterval(_t);
+        }, 1000);
+      }
 
-          // Some WebRTC impls deliver the track in muted state initially;
-          // re-connect when it actually carries audio data
-          track.onunmute = function() { console.log('track unmuted — reconnecting'); connect(track); };
-
+      // ── ICE + track watcher ───────────────────────────────────────────────
+      function lynqWatchPC(pc) {
+        // track event: fires when remote sends a MediaStreamTrack
+        // e.streams[0] is the actual MediaStream from the remote peer — most reliable
+        pc.addEventListener('track', function(e) {
+          if (e.track.kind !== 'audio') return;
+          console.log('[Lynq] track event, kind:', e.track.kind, 'muted:', e.track.muted, 'streams:', e.streams.length);
+          var stream = (e.streams && e.streams.length > 0) ? e.streams[0] : new MediaStream([e.track]);
+          lynqConnectStream(stream);
+          e.track.onunmute = function() {
+            console.log('[Lynq] track unmuted — reconnecting');
+            lynqConnectStream(stream);
+          };
           var wv = document.getElementById('appt-waveform');
           if (wv) wv.style.opacity = '1';
-          return true;
-        } catch(e) { console.warn('lynqAttachAudio error:', e); return false; }
-      };
+        });
 
-      // ── ICE state watcher ─────────────────────────────────────────────────
-      function lynqWatchPC(pc) {
-        // Log all data channels and their messages for diagnostics
+        // Data channel spy
         pc.addEventListener('datachannel', function(e) {
           var dc = e.channel;
-          console.log('[Lynq] datachannel received:', dc.label, 'state:', dc.readyState);
-          dc.addEventListener('open',    function()  { console.log('[Lynq] dc open:', dc.label); });
+          console.log('[Lynq] datachannel:', dc.label, dc.readyState);
           dc.addEventListener('message', function(m) { console.log('[Lynq] dc msg:', dc.label, m.data); });
-          dc.addEventListener('close',   function()  { console.log('[Lynq] dc close:', dc.label); });
         });
 
         pc.addEventListener('iceconnectionstatechange', function() {
           var s = pc.iceConnectionState;
-          console.log('ICE:', s);
+          console.log('[Lynq] ICE:', s);
           if (s === 'connected' || s === 'completed') {
-            window.lynqAttachAudio();
             if (label)  label.textContent = 'End Call';
             if (btn)    { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = 'rgba(239,68,68,0.25)'; btn.style.borderColor = 'rgba(239,68,68,0.6)'; }
             if (status) setStatus('● Connected to Sam', '#4ade80');
           }
           if (s === 'disconnected' || s === 'closed' || s === 'failed') {
-            if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(e){} window.__lynqSource = null; }
+            if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(x){} window.__lynqSource = null; }
+            var ael = document.getElementById('lynq-audio-el');
+            if (ael) { ael.srcObject = null; }
             var wv = document.getElementById('appt-waveform');
             if (wv) wv.style.opacity = '0.3';
             if (label)  label.textContent = 'Book an Appointment';
@@ -2697,9 +2705,6 @@
             if (status) setStatus('Call ended', 'rgba(255,255,255,0.4)');
           }
         });
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-          window.lynqAttachAudio();
-        }
       }
 
       // ── Wait for widget + PC ──────────────────────────────────────────────
