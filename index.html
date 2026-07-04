@@ -2701,11 +2701,19 @@
     })();
 
     // ── Lynq voice widget integration ────────────────────────────────────────
+    // Driven entirely by the widget's own public API (start/stop + callbacks) —
+    // the widget already tracks call state correctly and plays audio through
+    // its own <audio> element with proper jitter-buffered playout. We only tap
+    // the remote stream (never play it a second time) to drive the ring/
+    // waveform visuals.
     (function() {
       var btn    = document.getElementById('dograh-launch-btn');
       var label  = document.getElementById('dograh-btn-label');
       var status = document.getElementById('dograh-status');
-      var _ctx   = null;
+      var _ctx        = null;  // AudioContext used ONLY for analysis, never playback
+      var _pc         = null;  // RTCPeerConnection currently tapped for its remote track
+      var _pcPollId    = null;
+      var callActive  = false;
 
       function setStatus(msg, color) {
         status.textContent   = msg;
@@ -2765,124 +2773,144 @@
         _wvSmooth = null;
       }
 
-      // ── Button click ──────────────────────────────────────────────────────
-      btn.addEventListener('click', function() {
-        if (!window.LynqWidget || typeof window.LynqWidget.start !== 'function') {
-          setStatus('⚠ Voice service offline — try again shortly', '#f87171');
-          return;
-        }
-        // AudioContext created synchronously inside user gesture = always running,
-        // never subject to autoplay policy. latencyHint:'interactive' = small buffer,
-        // less choppiness vs default 'balanced'.
-        if (!_ctx) {
-          try { _ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive', sampleRate: 48000 }); }
-          catch(e) { console.warn('AudioContext unavailable:', e); }
-        }
-        if (_ctx && _ctx.state === 'suspended') _ctx.resume();
-        window.__lynqCtx = _ctx;
-
-        label.textContent = 'Connecting…';
-        btn.style.opacity = '0.7';
-        btn.disabled      = true;
-        setStatus('Dialing Sam · Booking Agent…', 'rgba(255,255,255,0.55)');
-        window.LynqWidget.start();
-      });
-
-      // ── Stream connect (AudioContext only — no HTMLAudioElement) ──────────
-      // Running both simultaneously causes two jitter buffers which makes audio choppy.
-      function lynqConnectStream(stream) {
-        var ctx = window.__lynqCtx;
-        if (!ctx) { console.warn('[Lynq] no AudioContext'); return; }
-
-        if (window.__lynqSource)   { try { window.__lynqSource.disconnect();   } catch(x){} }
-        if (window.__lynqAnalyser) { try { window.__lynqAnalyser.disconnect(); } catch(x){} }
-
-        var analyser = ctx.createAnalyser();
-        analyser.fftSize        = 256;
+      // ── Tap the remote stream for visuals only — NEVER connect to
+      //    _ctx.destination. The widget's own <audio> element already plays
+      //    this stream with proper jitter buffering; a second playback path
+      //    here is what caused the choppy/gappy audio.
+      function tapStreamForVisuals(stream) {
+        if (!_ctx) return;
+        var analyser = _ctx.createAnalyser();
+        analyser.fftSize = 256;
         analyser.smoothingTimeConstant = 0; // we do our own smoothing per-bar
-        var src = ctx.createMediaStreamSource(stream);
-        src.connect(analyser);
-        analyser.connect(ctx.destination);
+        var src = _ctx.createMediaStreamSource(stream);
+        src.connect(analyser); // intentionally not connected onward to _ctx.destination
 
-        window.__lynqSource   = src;
-        window.__lynqAnalyser = analyser;
-        console.log('[Lynq] stream connected, ctx.state:', ctx.state, 'latency:', ctx.baseLatency);
-
-        // Feed the same analyser into the background canvas + demo rings
-        if (window.__apptBgSetAnalyser)    window.__apptBgSetAnalyser(analyser);
-        if (window.__demoRingSetAnalyser)  window.__demoRingSetAnalyser(analyser);
-
+        if (window.__apptBgSetAnalyser)   window.__apptBgSetAnalyser(analyser);
+        if (window.__demoRingSetAnalyser) window.__demoRingSetAnalyser(analyser);
         startWaveformSync(analyser);
+
+        var wv = document.getElementById('appt-waveform');
+        if (wv) wv.style.opacity = '1';
       }
 
-      function endCall() {
-        if (window.__lynqSource) { try { window.__lynqSource.disconnect(); } catch(x){} window.__lynqSource = null; }
+      function resetVisuals() {
         if (window.__apptBgSetAnalyser)   window.__apptBgSetAnalyser(null);
         if (window.__demoRingSetAnalyser) window.__demoRingSetAnalyser(null);
         if (window.__demoRingSpeaking)    window.__demoRingSpeaking(false);
         stopWaveformSync();
         var wv = document.getElementById('appt-waveform');
         if (wv) wv.style.opacity = '0.3';
-        if (label)  label.textContent = 'Book an Appointment';
-        if (btn)    { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = ''; btn.style.borderColor = ''; }
-        if (status) setStatus('Call ended', 'rgba(255,255,255,0.4)');
       }
 
-      // ── PC watcher ────────────────────────────────────────────────────────
-      function lynqWatchPC(pc) {
-        pc.addEventListener('track', function(e) {
-          if (e.track.kind !== 'audio') return;
-          var stream = (e.streams && e.streams.length) ? e.streams[0] : new MediaStream([e.track]);
-          lynqConnectStream(stream);
-          e.track.onunmute = function() { lynqConnectStream(stream); };
-          var wv = document.getElementById('appt-waveform');
-          if (wv) wv.style.opacity = '1';
-        });
-
-        // Data channel carries rtf-bot-started/stopped-speaking from Pipecat
-        // Use these to directly drive the ring brightness regardless of analyser RMS
-        pc.addEventListener('datachannel', function(evt) {
-          evt.channel.addEventListener('message', function(m) {
-            try {
-              var msg = JSON.parse(m.data);
-              if (msg.type === 'rtf-bot-started-speaking' && window.__demoRingSpeaking) window.__demoRingSpeaking(true);
-              if (msg.type === 'rtf-bot-stopped-speaking' && window.__demoRingSpeaking) window.__demoRingSpeaking(false);
-            } catch(x){}
-          });
-        });
-
-        pc.addEventListener('iceconnectionstatechange', function() {
-          var s = pc.iceConnectionState;
-          if (s === 'connected' || s === 'completed') {
-            if (label)  label.textContent = 'End Call';
-            if (btn)    { btn.style.opacity = '1'; btn.disabled = false; btn.style.background = 'rgba(239,68,68,0.25)'; btn.style.borderColor = 'rgba(239,68,68,0.6)'; }
-            if (status) setStatus('● Connected to Sam', '#4ade80');
+      // ── Watch the active call's RTCPeerConnection purely to tap its remote
+      //    track for visuals. Re-armed on every start() since the widget
+      //    creates a fresh RTCPeerConnection per call — reusing a stale
+      //    reference is why visuals used to stop updating on the 2nd+ call.
+      function watchForTrack() {
+        clearTimeout(_pcPollId);
+        var tries = 0;
+        (function poll() {
+          var s  = window.LynqWidget && window.LynqWidget.getState();
+          var pc = s && s.pc;
+          if (pc && pc !== _pc) {
+            _pc = pc;
+            pc.addEventListener('track', function(e) {
+              if (e.track.kind !== 'audio') return;
+              var stream = (e.streams && e.streams.length) ? e.streams[0] : new MediaStream([e.track]);
+              tapStreamForVisuals(stream);
+              e.track.onunmute = function() { tapStreamForVisuals(stream); };
+            });
+            // Data channel carries rtf-bot-started/stopped-speaking from Pipecat —
+            // use these to directly drive ring brightness regardless of analyser RMS
+            pc.addEventListener('datachannel', function(evt) {
+              evt.channel.addEventListener('message', function(m) {
+                try {
+                  var msg = JSON.parse(m.data);
+                  if (msg.type === 'rtf-bot-started-speaking' && window.__demoRingSpeaking) window.__demoRingSpeaking(true);
+                  if (msg.type === 'rtf-bot-stopped-speaking' && window.__demoRingSpeaking) window.__demoRingSpeaking(false);
+                } catch(x){}
+              });
+            });
+            return;
           }
-          if (s === 'disconnected' || s === 'closed' || s === 'failed') endCall();
-        });
+          if (++tries < 50) _pcPollId = setTimeout(poll, 100); // poll up to ~5s
+        })();
       }
 
-      // ── Wait for widget + PC ──────────────────────────────────────────────
-      function waitForPC(attempts) {
-        if (window.LynqWidget) {
-          var state = window.LynqWidget.getState();
-          if (state && state.pc) {
-            lynqWatchPC(state.pc);
-          } else {
-            btn.addEventListener('click', function() {
-              var tries = 0;
-              var poll = setInterval(function() {
-                var s = window.LynqWidget.getState();
-                if (s && s.pc) { lynqWatchPC(s.pc); clearInterval(poll); }
-                if (++tries > 60) clearInterval(poll);
-              }, 200);
-            }, { once: true });
-          }
-        } else if (attempts > 0) {
-          setTimeout(function() { waitForPC(attempts - 1); }, 200);
+      // ── Drive button/status UI off the widget's own callbacks instead of
+      //    guessing from raw ICE state (which doesn't fire reliably on close()).
+      function wireWidgetCallbacks() {
+        window.LynqWidget.onStatusChange(function(statusKey, text) {
+          var color = statusKey === 'failed'    ? '#f87171'
+                    : statusKey === 'connected'  ? '#4ade80'
+                    : 'rgba(255,255,255,0.55)';
+          setStatus(text, color);
+        });
+
+        window.LynqWidget.onCallConnected(function() {
+          callActive = true;
+          label.textContent = 'End Call';
+          btn.style.opacity = '1';
+          btn.disabled       = false;
+          btn.style.background  = 'rgba(239,68,68,0.25)';
+          btn.style.borderColor = 'rgba(239,68,68,0.6)';
+        });
+
+        function handleCallOver() {
+          callActive = false;
+          clearTimeout(_pcPollId);
+          _pc = null;
+          resetVisuals();
+          label.textContent = 'Book an Appointment';
+          btn.style.opacity = '1';
+          btn.disabled       = false;
+          btn.style.background  = '';
+          btn.style.borderColor = '';
         }
+
+        window.LynqWidget.onCallEnd(handleCallOver);
+        window.LynqWidget.onError(function(err) {
+          handleCallOver();
+          setStatus('⚠ ' + (err && err.message ? err.message : 'Something went wrong'), '#f87171');
+        });
       }
-      waitForPC(30);
+
+      // ── Button click: start when idle, stop when a call is active ─────────
+      btn.addEventListener('click', function() {
+        if (!window.LynqWidget || typeof window.LynqWidget.start !== 'function') {
+          setStatus('⚠ Voice service offline — try again shortly', '#f87171');
+          return;
+        }
+
+        if (callActive) {
+          label.textContent = 'Ending…';
+          btn.disabled       = true;
+          window.LynqWidget.stop();
+          return;
+        }
+
+        // AudioContext created synchronously inside user gesture = always
+        // running, never subject to autoplay policy. Used purely for the
+        // visualizer tap — playback stays with the widget's <audio> element.
+        if (!_ctx) {
+          try { _ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive', sampleRate: 48000 }); }
+          catch(e) { console.warn('AudioContext unavailable:', e); }
+        }
+        if (_ctx && _ctx.state === 'suspended') _ctx.resume();
+
+        label.textContent = 'Connecting…';
+        btn.style.opacity = '0.7';
+        btn.disabled      = true;
+        setStatus('Dialing Sam · Booking Agent…', 'rgba(255,255,255,0.55)');
+        watchForTrack();
+        window.LynqWidget.start();
+      });
+
+      // ── Wait for widget script to finish loading, then wire callbacks ─────
+      (function waitForWidget(attempts) {
+        if (window.LynqWidget) { wireWidgetCallbacks(); return; }
+        if (attempts > 0) setTimeout(function() { waitForWidget(attempts - 1); }, 200);
+      })(30);
     })();
   </script>
 
