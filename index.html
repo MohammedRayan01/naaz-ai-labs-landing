@@ -2714,6 +2714,8 @@
       var _pc         = null;  // RTCPeerConnection currently tapped for its remote track
       var _pcPollId    = null;
       var callActive  = false;
+      var _tapSrc     = null;  // currently-connected MediaStreamAudioSourceNode (analysis tap)
+      var _tapAnalyser = null;
 
       function setStatus(msg, color) {
         status.textContent   = msg;
@@ -2779,11 +2781,18 @@
       //    here is what caused the choppy/gappy audio.
       function tapStreamForVisuals(stream) {
         if (!_ctx) return;
+        // A live track can mute/unmute more than once per call; disconnect the
+        // previous tap first so nodes don't pile up on repeated (re)connects.
+        if (_tapSrc)      { try { _tapSrc.disconnect();      } catch(x){} }
+        if (_tapAnalyser) { try { _tapAnalyser.disconnect(); } catch(x){} }
+
         var analyser = _ctx.createAnalyser();
         analyser.fftSize = 256;
         analyser.smoothingTimeConstant = 0; // we do our own smoothing per-bar
         var src = _ctx.createMediaStreamSource(stream);
         src.connect(analyser); // intentionally not connected onward to _ctx.destination
+        _tapSrc = src;
+        _tapAnalyser = analyser;
 
         if (window.__apptBgSetAnalyser)   window.__apptBgSetAnalyser(analyser);
         if (window.__demoRingSetAnalyser) window.__demoRingSetAnalyser(analyser);
@@ -2794,6 +2803,8 @@
       }
 
       function resetVisuals() {
+        if (_tapSrc)      { try { _tapSrc.disconnect();      } catch(x){} _tapSrc = null; }
+        if (_tapAnalyser) { try { _tapAnalyser.disconnect(); } catch(x){} _tapAnalyser = null; }
         if (window.__apptBgSetAnalyser)   window.__apptBgSetAnalyser(null);
         if (window.__demoRingSetAnalyser) window.__demoRingSetAnalyser(null);
         if (window.__demoRingSpeaking)    window.__demoRingSpeaking(false);
@@ -2839,6 +2850,17 @@
 
       // ── Drive button/status UI off the widget's own callbacks instead of
       //    guessing from raw ICE state (which doesn't fire reliably on close()).
+      //
+      //    NOTE: the widget only invokes onStatusChange when its embed token
+      //    is configured for embedMode 'headless' — this token defaults to
+      //    'floating' (see lynq-widget.js updateStatus()), so onStatusChange
+      //    never fires here and can't be relied on. onCallConnected/onCallEnd/
+      //    onError fire unconditionally regardless of embedMode, so status
+      //    text is set directly from those instead. (The real fix is to set
+      //    this embed token's embedMode to 'headless' server-side — that also
+      //    stops the widget from rendering its own floating call UI on top of
+      //    this one. Until then, onStatusChange is wired too, in case it ever
+      //    does fire, but nothing here depends on it.)
       function wireWidgetCallbacks() {
         window.LynqWidget.onStatusChange(function(statusKey, text) {
           var color = statusKey === 'failed'    ? '#f87171'
@@ -2854,9 +2876,10 @@
           btn.disabled       = false;
           btn.style.background  = 'rgba(239,68,68,0.25)';
           btn.style.borderColor = 'rgba(239,68,68,0.6)';
+          setStatus('● Connected to Sam', '#4ade80');
         });
 
-        function handleCallOver() {
+        function handleCallOver(msg, color) {
           callActive = false;
           clearTimeout(_pcPollId);
           _pc = null;
@@ -2866,12 +2889,12 @@
           btn.disabled       = false;
           btn.style.background  = '';
           btn.style.borderColor = '';
+          setStatus(msg || 'Call ended', color || 'rgba(255,255,255,0.4)');
         }
 
-        window.LynqWidget.onCallEnd(handleCallOver);
+        window.LynqWidget.onCallEnd(function() { handleCallOver('Call ended', 'rgba(255,255,255,0.4)'); });
         window.LynqWidget.onError(function(err) {
-          handleCallOver();
-          setStatus('⚠ ' + (err && err.message ? err.message : 'Something went wrong'), '#f87171');
+          handleCallOver('⚠ ' + (err && err.message ? err.message : 'Something went wrong'), '#f87171');
         });
       }
 
