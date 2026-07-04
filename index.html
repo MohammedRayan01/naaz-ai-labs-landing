@@ -42,6 +42,8 @@
       width: 100%;
       height: 100vh;
       overflow: hidden;
+      /* Fallback so hero text stays readable if the video asset fails to load */
+      background: radial-gradient(circle at 30% 40%, #262626 0%, #0a0a0a 70%);
     }
 
     video {
@@ -1097,10 +1099,19 @@
       .header-nav { display: none; }
       .site-header { padding: 12px 20px; }
       .hero-top-right {
-        bottom: 100px;
-        right: 20px;
+        top: 88px;
+        bottom: auto;
+        right: 16px;
+        left: 16px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 8px;
       }
-      .stat-card { min-width: 160px; padding: 12px 16px; }
+      .hero-top-right .brand-label { display: none; }
+      .stat-card { min-width: 0; padding: 8px 12px; gap: 8px; }
+      .stat-number { font-size: 1.1rem; min-width: 0; }
+      .stat-label { font-size: 9px; letter-spacing: 1px; }
       .hero-bottom-left {
         bottom: 80px;
         left: 24px;
@@ -1634,6 +1645,53 @@
     }
     .cta-outline:hover { border-color: #fff; background: rgba(255,255,255,0.08); }
 
+    /* ── Lead qualification form (final CTA) ── */
+    .lead-form-divider {
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.35);
+      margin: 40px 0 20px;
+    }
+    .lead-form {
+      max-width: 480px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .lead-form-row {
+      display: flex;
+      gap: 12px;
+    }
+    .lead-form input,
+    .lead-form select {
+      flex: 1;
+      width: 100%;
+      padding: 13px 16px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 13.5px;
+      font-family: inherit;
+    }
+    .lead-form input::placeholder { color: rgba(255,255,255,0.35); }
+    .lead-form select { color: rgba(255,255,255,0.85); }
+    .lead-form select option { color: #000; }
+    .lead-form input:focus,
+    .lead-form select:focus {
+      outline: none;
+      border-color: rgba(255,255,255,0.5);
+    }
+    .lead-form-hint {
+      font-size: 11.5px;
+      color: rgba(255,255,255,0.35);
+      margin-top: 4px;
+    }
+    @media (max-width: 600px) {
+      .lead-form-row { flex-direction: column; }
+    }
+
     /* ── Footer ── */
     .site-footer {
       background: #050505;
@@ -1747,8 +1805,8 @@
           <span class="stat-label">Faster Automation</span>
         </div>
         <div class="stat-card">
-          <span class="stat-number">99%</span>
-          <span class="stat-label">Accuracy Rate</span>
+          <span class="stat-number">60%</span>
+          <span class="stat-label">Lower Cost, Same Grade</span>
         </div>
         <div class="stat-card">
           <span class="stat-number">24/7</span>
@@ -1762,8 +1820,8 @@
         <h1 class="hero-headline">Intelligence<br>Built for<br>Tomorrow</h1>
         <p class="hero-sub">We build AI-powered products that think, adapt, and deliver — so your business moves faster than the world around it.</p>
         <div class="hero-buttons">
-          <a href="#" class="btn-primary">Get Started</a>
-          <a href="#" class="btn-ghost">Learn More</a>
+          <a href="#demo" class="btn-primary">Talk to Our AI Agent</a>
+          <a href="#services" class="btn-ghost">See What We Build</a>
         </div>
       </div>
 
@@ -1953,7 +2011,7 @@
           <p class="bento-card-desc">We provide a coordinated team of voice agents, chat agents and automated workflows that work together like a real department — at a fraction of the cost.</p>
         </div>
         <div style="margin-top:28px;">
-          <a href="#" style="display:inline-block;padding:13px 28px;background:rgba(255,255,255,0.95);color:#000;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:1px;border-radius:999px;">Build your AI team →</a>
+          <a href="#contact" style="display:inline-block;padding:13px 28px;background:rgba(255,255,255,0.95);color:#000;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:1px;border-radius:999px;">Build your AI team →</a>
         </div>
       </div>
 
@@ -2235,40 +2293,41 @@
     </div>
   </section>
 
-  <!-- Testimonials (PLACEHOLDER content — swap in real clients) -->
+  <!-- What this looks like — honest scenario cards, not fabricated client quotes -->
   <section class="light-section" id="results">
     <div class="sec-center reveal">
-      <p class="sec-eyebrow">Results</p>
-      <h2 class="sec-title">Teams that stopped doing<br>the work behind the work</h2>
+      <p class="sec-eyebrow">What this looks like</p>
+      <h2 class="sec-title">The work automation<br>actually takes off your plate</h2>
+      <p class="sec-sub">We're early — these are representative scenarios built from how we design these systems, not client quotes. Ask us for live references on a call.</p>
     </div>
     <div class="quote-grid">
       <div class="quote-card reveal">
-        <blockquote>"Placeholder — client quote about response time or hours saved goes here. Keep it specific: numbers beat adjectives."</blockquote>
+        <blockquote>"An AI agent answers every inbound call within two rings, asks the same qualifying questions your reps would, and only hands over the leads worth a human's time."</blockquote>
         <div class="quote-who">
-          <div class="quote-avatar">AB</div>
+          <div class="quote-avatar">📞</div>
           <div>
-            <div class="quote-name">Client Name</div>
-            <div class="quote-role">Role, Company</div>
+            <div class="quote-name">Lead Qualification</div>
+            <div class="quote-role">Scenario · Inbound sales</div>
           </div>
         </div>
       </div>
       <div class="quote-card reveal">
-        <blockquote>"Placeholder — a quote about the voice agent booking meetings or qualifying leads around the clock."</blockquote>
+        <blockquote>"Prospects book, reschedule or cancel entirely by voice — no calendar link, no back-and-forth email. The agent checks real availability and confirms on the spot, 24/7."</blockquote>
         <div class="quote-who">
-          <div class="quote-avatar">CD</div>
+          <div class="quote-avatar">📅</div>
           <div>
-            <div class="quote-name">Client Name</div>
-            <div class="quote-role">Role, Company</div>
+            <div class="quote-name">Appointment Booking</div>
+            <div class="quote-role">Scenario · Service businesses</div>
           </div>
         </div>
       </div>
       <div class="quote-card reveal">
-        <blockquote>"Placeholder — a quote about cost: what the same capability would have cost with a bigger agency or in-house team."</blockquote>
+        <blockquote>"A monthly reporting workflow that used to eat half a day for someone in finance now runs unattended before anyone's at their desk — same output, zero manual pull."</blockquote>
         <div class="quote-who">
-          <div class="quote-avatar">EF</div>
+          <div class="quote-avatar">📊</div>
           <div>
-            <div class="quote-name">Client Name</div>
-            <div class="quote-role">Role, Company</div>
+            <div class="quote-name">Reporting Automation</div>
+            <div class="quote-role">Scenario · Finance & ops</div>
           </div>
         </div>
       </div>
@@ -2342,6 +2401,31 @@
         <a href="https://wa.me/919448434344" class="cta-outline" target="_blank" rel="noopener">WhatsApp us</a>
         <a href="mailto:info@naazailabs.com" class="cta-outline">info@naazailabs.com</a>
       </div>
+
+      <p class="lead-form-divider">or tell us what you need — we'll message you directly</p>
+      <form id="leadForm" class="lead-form">
+        <div class="lead-form-row">
+          <input type="text" id="lf-name" placeholder="Your name" required>
+          <input type="text" id="lf-contact" placeholder="Phone or email" required>
+        </div>
+        <div class="lead-form-row">
+          <select id="lf-need" required>
+            <option value="" disabled selected>What do you need?</option>
+            <option value="Voice agent">Voice agent</option>
+            <option value="Chat agent">Chat agent</option>
+            <option value="Workflow automation">Workflow automation</option>
+            <option value="Not sure yet">Not sure yet</option>
+          </select>
+          <select id="lf-timeline" required>
+            <option value="" disabled selected>Timeline</option>
+            <option value="ASAP">ASAP</option>
+            <option value="This quarter">This quarter</option>
+            <option value="Just exploring">Just exploring</option>
+          </select>
+        </div>
+        <button type="submit" class="cta-solid" style="width:100%;border:none;">Send via WhatsApp</button>
+        <p class="lead-form-hint">No signup — opens a pre-filled WhatsApp message straight to our team.</p>
+      </form>
     </div>
   </section>
 
@@ -2718,6 +2802,20 @@
     }, { threshold: 0.15 });
 
     bentoCards.forEach(card => bentoObserver.observe(card));
+
+    // ── Lead qualification form: no backend, opens a pre-filled WhatsApp chat ──
+    const leadForm = document.getElementById('leadForm');
+    if (leadForm) {
+      leadForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name     = document.getElementById('lf-name').value.trim();
+        const contact  = document.getElementById('lf-contact').value.trim();
+        const need     = document.getElementById('lf-need').value;
+        const timeline = document.getElementById('lf-timeline').value;
+        const msg = `Hi Naaz AI Labs, I'm ${name} (${contact}). I'm interested in: ${need}. Timeline: ${timeline}.`;
+        window.open(`https://wa.me/919448434344?text=${encodeURIComponent(msg)}`, '_blank');
+      });
+    }
 
     // ── Generic reveal-on-scroll for new light sections ──
     const revealObserver = new IntersectionObserver((entries) => {
@@ -3165,6 +3263,11 @@
       function setSide(side, instant) {
         currentSide = side;
         targetX = side === 'left' ? ghostLeftX() : ghostRightX();
+        // Docked right sits in the same corner as the Lynq call widget button —
+        // lift the ghost above it instead of overlapping. Only above the mobile
+        // breakpoint though: on narrow screens the hero copy runs closer to the
+        // right edge, so raising it there covers text instead of clearing a widget.
+        widget.style.bottom = (side === 'right' && window.innerWidth > 768) ? '112px' : '';
         if (instant) { ghostX = targetX; widget.style.left = ghostX + 'px'; }
         else scheduleMove(); // wake up the loop to animate to new target
 
